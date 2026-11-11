@@ -1124,24 +1124,24 @@
         const demoTracks = () => [
             {
                 id: '1',
-                title: 'Lofi Hip Hop Radio - Beats to Relax/Study to',
-                artist: 'Lofi Girl',
-                platform: 'youtube',
-                embedUrl: 'https://www.youtube-nocookie.com/embed/jfKfPfyJRdk?autoplay=1'
-            },
-            {
-                id: '2',
                 title: 'Shape of You',
                 artist: 'Ed Sheeran',
                 platform: 'soundcloud',
                 embedUrl: 'https://w.soundcloud.com/player/?url=https%3A//soundcloud.com/edsheeran/shape-of-you&color=%233b82f6&auto_play=true'
             },
             {
-                id: '3',
+                id: '2',
                 title: 'Blinding Lights',
                 artist: 'The Weeknd',
                 platform: 'soundcloud',
                 embedUrl: 'https://w.soundcloud.com/player/?url=https%3A//soundcloud.com/theweeknd/blinding-lights&color=%233b82f6&auto_play=true'
+            },
+            {
+                id: '3',
+                title: 'Lofi Hip Hop Radio - Beats to Relax/Study to',
+                artist: 'Lofi Girl',
+                platform: 'youtube',
+                embedUrl: 'https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1'
             }
         ];
 
@@ -1249,7 +1249,7 @@
                     title: `YouTube Трек (${videoId})`,
                     artist: 'YouTube Video',
                     platform: 'youtube',
-                    embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`
+                    embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1`
                 };
             } else {
                 showToast('Ищу трек...');
@@ -1263,7 +1263,7 @@
                     title: found.title,
                     artist: found.artist,
                     platform: 'youtube',
-                    embedUrl: `https://www.youtube-nocookie.com/embed/${found.videoId}?autoplay=1`
+                    embedUrl: `https://www.youtube.com/embed/${found.videoId}?autoplay=1`
                 };
             }
 
@@ -1335,7 +1335,7 @@
 
         function createEmbed(container, track) {
             const scUrl = track.platform === 'soundcloud' ? themedSoundcloudUrl(track) : track.embedUrl;
-            const iframeHtml = `<iframe src="${escapeHtml(scUrl)}" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen credentialless class="w-full h-full rounded-xl"></iframe>`;
+            const iframeHtml = `<iframe src="${escapeHtml(scUrl)}" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen class="w-full h-full rounded-xl"></iframe>`;
 
             if (track.platform === 'youtube' && window.YT && window.YT.Player) {
                 const mount = document.createElement('div');
@@ -1345,14 +1345,10 @@
                 container.appendChild(mount);
                 ytPlayer = new YT.Player(mount, {
                     videoId: extractYoutubeId(track.embedUrl),
-                    host: 'https://www.youtube-nocookie.com',
                     playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
                     events: {
                         onReady: (e) => {
-                            try {
-                                e.target.getIframe().setAttribute('credentialless', '');
-                                e.target.playVideo();
-                            } catch (err) {}
+                            try { e.target.playVideo(); } catch (err) {}
                         },
                         onStateChange: (e) => {
                             const s = e.data;
