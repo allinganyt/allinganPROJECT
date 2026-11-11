@@ -28,7 +28,20 @@ body {
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
+  position: relative;
 }
+/* ===== Liquid Glass: плавающие световые капли на фоне ===== */
+.blob {
+  position: absolute; border-radius: 50%; filter: blur(90px);
+  pointer-events: none; z-index: 0; opacity: .45;
+}
+.blob.b1 { width: 340px; height: 340px; background: var(--accent); top: -8%; right: -6%;
+  animation: float1 14s infinite alternate ease-in-out; }
+.blob.b2 { width: 280px; height: 280px; background: #8b5cf6; bottom: -12%; left: -8%;
+  animation: float2 18s infinite alternate ease-in-out; opacity: .3; }
+@keyframes float1 { 0% { transform: translate(-40px,-40px) scale(1); } 100% { transform: translate(120px,90px) scale(1.25); } }
+@keyframes float2 { 0% { transform: translate(60px,30px) scale(1.1); } 100% { transform: translate(-90px,-70px) scale(.9); } }
+.topbar, .layout, .modalbg { position: relative; z-index: 1; }
 /* Тапы: разрешаем жесты на всех интерактивных элементах */
 button, .item, .dot, input, select { touch-action: manipulation; }
 button { cursor: pointer; }
@@ -37,7 +50,9 @@ button { cursor: pointer; }
 .topbar {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 14px;
-  background: rgba(0,0,0,.25);
+  background: rgba(10,16,35,.55);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   z-index: 10;
@@ -75,8 +90,13 @@ button { cursor: pointer; }
   -webkit-overflow-scrolling: touch; }
 
 .playerbox {
-  background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+  background: rgba(20,30,55,.5);
+  border: 1px solid var(--border);
+  border-radius: 18px;
   padding: 12px; display: flex; flex-direction: column; gap: 10px;
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.12), 0 10px 30px rgba(0,0,0,.35);
 }
 .video { width: 100%; aspect-ratio: 16/9; border-radius: 14px; background: #000; border: 1px solid var(--border);
   overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative; }
@@ -103,8 +123,11 @@ button { cursor: pointer; }
 
 /* ===== Visualizer ===== */
 .vizcard {
-  background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+  background: rgba(20,30,55,.5); border: 1px solid var(--border); border-radius: 18px;
   padding: 10px 12px; flex-shrink: 0;
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.12);
 }
 .vizcard canvas { width: 100%; height: 70px; display: block; }
 .vizlabel { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
@@ -112,7 +135,10 @@ button { cursor: pointer; }
 /* ===== Results / playlist panel ===== */
 .side {
   width: 330px; flex-shrink: 0; border-left: 1px solid var(--border);
-  background: rgba(10,16,35,.5); padding: 12px; display: flex; flex-direction: column; gap: 10px;
+  background: rgba(10,16,35,.55);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
   overflow-y: auto; -webkit-overflow-scrolling: touch;
 }
 .side h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
@@ -155,11 +181,23 @@ button { cursor: pointer; }
 .dot:active { transform: scale(1.15); }
 .dot.active { border-color: #fff; }
 
+/* ===== Mobile tabs (переключатель Плеер / Плейлист) ===== */
+.mobile-tabs { display: none; gap: 8px; flex-shrink: 0; }
+.mobile-tabs button {
+  flex: 1; padding: 10px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;
+  background: rgba(20,30,55,.5); color: var(--muted); border: 1px solid var(--border);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.mobile-tabs button.active { background: var(--accent); color: #fff; border-color: transparent;
+  box-shadow: 0 0 15px var(--accent-glow); }
+
 /* ===== Responsive: phone portrait ===== */
 @media (max-width: 860px) {
+  .mobile-tabs { display: flex; }
   .layout { flex-direction: column; }
-  .side { width: 100%; border-left: none; border-top: 1px solid var(--border);
-    max-height: 45%; }
+  .side { width: 100%; border-left: none; border-top: 1px solid var(--border); display: none; flex: 1; }
+  body.showlist .side { display: flex; }
+  body.showlist .stage { display: none; }
   .brand, .badge { display: none; }
   .vol { display: none; }
   .vizcard canvas { height: 56px; }
@@ -189,6 +227,9 @@ button { cursor: pointer; }
 </head>
 <body>
 
+<div class="blob b1"></div>
+<div class="blob b2"></div>
+
 <div class="topbar">
   <div class="logo">M</div>
   <span class="brand">Muzik player</span>
@@ -206,6 +247,10 @@ button { cursor: pointer; }
 
 <div class="layout">
   <div class="stage">
+    <div class="mobile-tabs">
+      <button id="tabPlayer" type="button" class="active">🎧 Плеер</button>
+      <button id="tabList" type="button">☰ Плейлист</button>
+    </div>
     <div class="playerbox">
       <div class="video" id="videoBox">
         <div class="placeholder" id="placeholder">
@@ -239,7 +284,9 @@ button { cursor: pointer; }
   </div>
 
   <div class="side">
-    <h3>Результаты поиска</h3>
+    <h3>Встроенная подборка</h3>
+    <button class="btn" id="builtinBtn" type="button" style="width:100%">🎵 Загрузить 20 треков</button>
+    <h3 style="margin-top:8px">Результаты поиска</h3>
     <div class="list" id="results"><div class="empty">Здесь появятся найденные треки</div></div>
     <h3 style="margin-top:8px">Плейлист</h3>
     <div class="status" id="plStatus">0 треков</div>
@@ -441,6 +488,44 @@ function renderResults(items, status) {
 }
 
 // ---------- playlist ----------
+// Встроенная подборка: 20 треков (10 RU + 10 EN), разрешаются через поиск SoundCloud при первом запуске
+const BUILTIN_TRACKS = [
+  { title: '1000-7', artist: 'Sadfriendd', query: '1000-7 sadfriendd' },
+  { title: 'Type London', artist: 'phonk', query: 'type london' },
+  { title: 'Назад в кресты', artist: 'RU', query: 'назад в кресты' },
+  { title: 'Седая ночь', artist: 'RU', query: 'седая ночь' },
+  { title: 'Белые розы', artist: 'Юрий Шатунов', query: 'белые розы шатунов' },
+  { title: 'Кто пчёлок уважает', artist: 'RU', query: 'кто пчёлок уважает' },
+  { title: 'Девочка с каре', artist: 'Мукка', query: 'мукка девочка с каре' },
+  { title: 'Спутник', artist: 'Буерак', query: 'буерак спутник' },
+  { title: 'Судно (Boris Ryzhy)', artist: 'Молчат Дома', query: 'молчат дома судно' },
+  { title: 'Бром', artist: 'Сироткин', query: 'сироткин бром' },
+  { title: 'Blinding Lights', artist: 'The Weeknd', query: 'blinding lights the weeknd' },
+  { title: 'One More Time', artist: 'Daft Punk', query: 'daft punk one more time' },
+  { title: 'Feel Good Inc.', artist: 'Gorillaz', query: 'gorillaz feel good inc' },
+  { title: 'Billie Jean', artist: 'Michael Jackson', query: 'michael jackson billie jean' },
+  { title: 'Africa', artist: 'Toto', query: 'toto africa' },
+  { title: 'Sweater Weather', artist: 'The Neighbourhood', query: 'the neighbourhood sweater weather' },
+  { title: 'Never Gonna Give You Up', artist: 'Rick Astley', query: 'rick astley never gonna give you up' },
+  { title: 'Bohemian Rhapsody', artist: 'Queen', query: 'queen bohemian rhapsody' },
+  { title: 'Still D.R.E.', artist: 'Dr. Dre ft. Snoop Dogg', query: 'dr dre still dre' },
+  { title: 'In the End', artist: 'Linkin Park', query: 'linkin park in the end' }
+];
+
+function loadBuiltins() {
+  playlist = BUILTIN_TRACKS.map(function (t, i) {
+    return {
+      id: 'b' + i,
+      title: t.title,
+      artist: t.artist,
+      platform: 'builtin',
+      query: t.query
+    };
+  });
+  currentIndex = -1;
+  renderPlaylist();
+}
+
 function addTrack(track) {
   track.id = Date.now() + '' + playlist.length;
   playlist.push(track);
@@ -464,7 +549,7 @@ function renderPlaylist() {
     const el = document.createElement('div');
     el.className = 'item' + (i === currentIndex ? ' active' : '');
     el.innerHTML =
-      '<div class="ic ' + (t.platform === 'youtube' ? 'yt' : 'sc') + '">' + (t.platform === 'youtube' ? '▶' : '☁') + '</div>' +
+      '<div class="ic ' + (t.platform === 'youtube' ? 'yt' : (t.platform === 'builtin' ? '' : 'sc')) + '">' + (t.platform === 'youtube' ? '▶' : (t.platform === 'builtin' ? '★' : '☁')) + '</div>' +
       '<div class="meta"><div class="t">' + esc(t.title) + '</div><div class="a">' + esc(t.artist) + '</div></div>';
     el.addEventListener('click', function () { playTrack(i); });
     const x = document.createElement('button');
@@ -496,12 +581,27 @@ function stopPlayback() {
 }
 
 // ---------- playback ----------
-function playTrack(i) {
+async function playTrack(i) {
   if (i < 0 || i >= playlist.length) return;
   currentIndex = i;
   const t = playlist[i];
   $('nowTitle').textContent = t.title;
   $('nowArtist').textContent = t.artist;
+
+  // Встроенный трек: при первом запуске находим его на SoundCloud и подменяем
+  if (t.platform === 'builtin') {
+    $('plStatus').textContent = 'Ищу «' + t.title + '» на SoundCloud…';
+    $('plStatus').style.color = '';
+    const found = await searchSoundcloud(t.query);
+    if (found && found.length) {
+      playlist[i] = Object.assign({}, t, found[0]);
+      renderPlaylist();
+      return playTrack(i);
+    }
+    $('plStatus').textContent = 'Не нашёл «' + t.title + '» на SoundCloud';
+    $('plStatus').style.color = '#f87171';
+    return;
+  }
 
   const box = $('videoBox');
   box.innerHTML = '';
@@ -669,6 +769,20 @@ $('themedots').addEventListener('click', function (e) {
   if (!dot) return;
   setTheme(dot.getAttribute('data-color'), dot.getAttribute('data-glow'), dot);
 });
+$('builtinBtn').addEventListener('click', loadBuiltins);
+$('tabPlayer').addEventListener('click', function () {
+  document.body.classList.remove('showlist');
+  $('tabPlayer').classList.add('active');
+  $('tabList').classList.remove('active');
+});
+$('tabList').addEventListener('click', function () {
+  document.body.classList.add('showlist');
+  $('tabList').classList.add('active');
+  $('tabPlayer').classList.remove('active');
+});
+
+// Готово при старте: встроенная подборка сразу в плейлисте
+loadBuiltins();
 
 // helpers
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
