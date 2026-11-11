@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Muzik player</title>
+<style>
+:root {
+  --accent: #3b82f6;
+  --accent-glow: rgba(59,130,246,.45);
+  --bg: #070c19;
+  --panel: rgba(15,23,42,.6);
+  --card: rgba(20,30,55,.5);
+  --border: rgba(255,255,255,.09);
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+html, body { height: 100%; }
+body {
+  background:
+    radial-gradient(circle at 85% 20%, rgba(30,64,175,.4), transparent 55%),
+    radial-gradient(circle at 10% 85%, rgba(139,92,246,.25), transparent 50%),
+    var(--bg);
+  color: var(--text);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== Topbar ===== */
+.topbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: rgba(0,0,0,.25);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.logo { width: 30px; height: 30px; border-radius: 9px; background: var(--accent);
+  display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;
+  box-shadow: 0 0 15px var(--accent-glow); flex-shrink: 0; }
+.brand { font-weight: 700; font-size: 14px; white-space: nowrap; }
+.badge { font-size: 10px; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,.06);
+  border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.searchwrap { flex: 1; display: flex; gap: 8px; min-width: 0; }
+.searchwrap input {
+  flex: 1; min-width: 0;
+  background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 12px;
+  padding: 9px 14px; color: var(--text); font-size: 13px; outline: none;
+}
+.searchwrap input:focus { border-color: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
+.searchwrap select {
+  background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 12px;
+  padding: 9px 8px; color: var(--text); font-size: 12px; outline: none; cursor: pointer; flex-shrink: 0;
+}
+.searchwrap select option { background: #0f172a; }
+.btn {
+  background: var(--accent); border: none; border-radius: 12px; color: #fff;
+  padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  box-shadow: 0 3px 15px var(--accent-glow);
+}
+.btn:active { transform: scale(.97); }
+.btn.ghost { background: rgba(255,255,255,.07); box-shadow: none; border: 1px solid var(--border); }
+
+/* ===== Layout ===== */
+.layout { flex: 1; display: flex; min-height: 0; }
+.stage { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 12px; gap: 12px; overflow-y: auto; }
+
+.playerbox {
+  background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
+  backdrop-filter: blur(14px);
+}
+.video { width: 100%; aspect-ratio: 16/9; border-radius: 14px; background: #000; border: 1px solid var(--border);
+  overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative; }
+.video iframe, .video video, .video audio { width: 100%; height: 100%; border: none; display: block; }
+.video .placeholder { color: var(--muted); font-size: 13px; text-align: center; padding: 14px; }
+.video .placeholder svg { width: 46px; height: 46px; fill: var(--accent); opacity: .8; margin-bottom: 8px; }
+
+.nowrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.nowinfo { flex: 1; min-width: 140px; }
+.nowtitle { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nowartist { font-size: 12px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.controls { display: flex; align-items: center; gap: 8px; }
+.cbtn {
+  width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.08);
+  border: 1px solid var(--border); color: #fff; display: flex; align-items: center;
+  justify-content: center; cursor: pointer;
+}
+.cbtn svg { width: 17px; height: 17px; fill: currentColor; }
+.cbtn.main { width: 48px; height: 48px; background: var(--accent); box-shadow: 0 0 20px var(--accent-glow); border: none; }
+.cbtn.main svg { width: 22px; height: 22px; }
+.vol { display: flex; align-items: center; gap: 8px; width: 150px; }
+.vol input { flex: 1; accent-color: var(--accent); }
+
+/* ===== Visualizer ===== */
+.vizcard {
+  background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+  padding: 10px 12px; flex-shrink: 0;
+}
+.vizcard canvas { width: 100%; height: 70px; display: block; }
+.vizlabel { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+
+/* ===== Results / playlist panel ===== */
+.side {
+  width: 330px; flex-shrink: 0; border-left: 1px solid var(--border);
+  background: rgba(10,16,35,.5); padding: 12px; display: flex; flex-direction: column; gap: 10px;
+  overflow-y: auto; backdrop-filter: blur(14px);
+}
+.side h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.item {
+  background: rgba(0,0,0,.25); border: 1px solid var(--border); border-radius: 12px;
+  padding: 9px 11px; display: flex; align-items: center; gap: 10px; cursor: pointer;
+}
+.item:hover { border-color: rgba(255,255,255,.25); background: rgba(30,45,80,.5); }
+.item.active { border-color: var(--accent); background: rgba(59,130,246,.12); }
+.item .ic { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
+  background: rgba(255,255,255,.06); color: var(--accent); }
+.item .ic.yt { background: rgba(239,68,68,.15); color: #f87171; }
+.item .ic.sc { background: rgba(249,115,22,.15); color: #fb923c; }
+.item .meta { flex: 1; min-width: 0; }
+.item .t { font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .a { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .x { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 4px; }
+.item .x:hover { color: #f87171; }
+.empty { color: var(--muted); font-size: 12px; text-align: center; padding: 14px 6px; }
+.status { font-size: 11px; color: var(--muted); }
+
+/* ===== Settings modal ===== */
+.modalbg { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
+  align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+.modalbg.open { display: flex; }
+.modal { background: #0f172a; border: 1px solid var(--border); border-radius: 18px;
+  padding: 20px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 12px; }
+.modal h2 { font-size: 16px; }
+.modal p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.modal input { background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; color: var(--text); font-size: 13px; outline: none; }
+.modal .row { display: flex; gap: 8px; justify-content: flex-end; }
+.themedots { display: flex; gap: 10px; }
+.dot { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+.dot.active { border-color: #fff; }
+
+/* ===== Responsive: phone portrait ===== */
+@media (max-width: 860px) {
+  .layout { flex-direction: column; }
+  .side { width: 100%; border-left: none; border-top: 1px solid var(--border);
+    max-height: 42%; }
+  .brand, .badge { display: none; }
+  .vol { display: none; }
+  .vizcard canvas { height: 56px; }
+}
+/* ===== Responsive: phone landscape (short screens) ===== */
+@media (max-height: 500px) {
+  .stage { flex-direction: row; }
+  .playerbox { flex: 1.4; }
+  .stage .stack { flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .video { aspect-ratio: auto; flex: 1; min-height: 0; }
+  .vizcard canvas { height: 46px; }
+  .topbar { padding: 6px 10px; }
+  .topbar .btn { padding: 7px 12px; }
+  .cbtn { width: 34px; height: 34px; }
+  .cbtn.main { width: 40px; height: 40px; }
+  .side { max-height: none; }
+  @media (max-width: 860px) {
+    .stage { flex-direction: column; overflow-y: auto; }
+    .video { aspect-ratio: 16/9; flex: none; }
+  }
+}
+@media (max-height: 500px) and (min-width: 861px) {
+  .side { width: 300px; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">M</div>
+  <span class="brand">Muzik player</span>
+  <span class="badge">v3</span>
+  <div class="searchwrap">
+    <input id="q" type="search" placeholder="Название трека или ссылка (YouTube / SoundCloud)…" autocomplete="off">
+    <select id="engine">
+      <option value="soundcloud">SoundCloud</option>
+      <option value="youtube">YouTube</option>
+    </select>
+    <button class="btn" onclick="doSearch()">Найти</button>
+  </div>
+  <button class="btn ghost" onclick="openSettings()">⚙</button>
+</div>
+
+<div class="layout">
+  <div class="stage">
+    <div class="playerbox">
+      <div class="video" id="videoBox">
+        <div class="placeholder" id="placeholder">
+          <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          <div>Ничего не играет. Найди трек или вставь ссылку.</div>
+        </div>
+      </div>
+      <div class="nowrow">
+        <div class="controls">
+          <button class="cbtn" onclick="prevTrack()" title="Назад"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+          <button class="cbtn main" onclick="togglePlay()" title="Пуск/пауза"><svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+          <button class="cbtn" onclick="nextTrack()" title="Вперёд"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg></button>
+        </div>
+        <div class="nowinfo">
+          <div class="nowtitle" id="nowTitle">Трек не выбран</div>
+          <div class="nowartist" id="nowArtist">Muzik Engine</div>
+        </div>
+        <div class="vol">
+          <span style="font-size:13px">🔊</span>
+          <input type="range" id="volume" min="0" max="100" value="100" oninput="setVolume(this.value)">
+        </div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="vizcard">
+        <div class="vizlabel" id="vizLabel">Визуализатор (ожидание)</div>
+        <canvas id="viz"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="side">
+    <h3>Результаты поиска</h3>
+    <div class="list" id="results"><div class="empty">Здесь появятся найденные треки</div></div>
+    <h3 style="margin-top:8px">Плейлист</h3>
+    <div class="status" id="plStatus">0 треков</div>
+    <div class="list" id="playlist"><div class="empty">Плейлист пуст</div></div>
+  </div>
+</div>
+
+<div class="modalbg" id="settingsModal">
+  <div class="modal">
+    <h2>Настройки</h2>
+    <p>Цвет темы:</p>
+    <div class="themedots">
+      <div class="dot active" style="background:#3b82f6" onclick="setTheme('#3b82f6','rgba(59,130,246,.45)',this)"></div>
+      <div class="dot" style="background:#8b5cf6" onclick="setTheme('#8b5cf6','rgba(139,92,246,.45)',this)"></div>
+      <div class="dot" style="background:#ec4899" onclick="setTheme('#ec4899','rgba(236,72,153,.45)',this)"></div>
+      <div class="dot" style="background:#10b981" onclick="setTheme('#10b981','rgba(16,185,129,.45)',this)"></div>
+    </div>
+    <p><b>Локальный файл:</b> можно открыть аудио с устройства — тогда визуализатор работает по-настоящему, по спектру звука.</p>
+    <input type="file" id="fileInput" accept="audio/*" onchange="loadLocalFile(this.files[0])">
+    <p><b>YouTube API-ключ (необязательно):</b> поиск по словам надёжнее работает с бесплатным ключом YouTube Data API v3 (console.cloud.google.com). Ключ хранится только на твоём устройстве.</p>
+    <input id="apiKeyInput" placeholder="AIza… (можно оставить пустым)">
+    <div class="row">
+      <button class="btn ghost" onclick="closeSettings()">Отмена</button>
+      <button class="btn" onclick="saveSettings()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- state ----------
+let playlist = [];
+let currentIndex = -1;
+let results = [];
+let isPlaying = false;
+let apiKey = localStorage.getItem('muzik_apikey') || '';
+document.getElementById('apiKeyInput').value = apiKey;
+
+const $ = id => document.getElementById(id);
+
+// ---------- search ----------
+const PIPED_INSTANCES = [
+  'https://pipedapi.kavin.rocks',
+  'https://pipedapi.adminforge.de',
+  'https://api.piped.private.coffee'
+];
+
+// Публичные client_id веб-плеера SoundCloud (могут отзываться; пробуем по очереди)
+const SC_CLIENT_IDS = [
+  'iZIs9mchLcO5IuupZ066Y7L6IdyVU1Sv',
+  'a3e059610d7fdce9627b7607d4f152c1',
+  'JObvCezWVLmcT0gZfmkNdfv9AH6piZtW'
+];
+let scWorkingId = null;
+
+function parseYouTubeId(url) {
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+// Поиск по SoundCloud: настоящие треки с обложками и длительностью
+async function searchSoundcloud(query) {
+  const ids = scWorkingId ? [scWorkingId, ...SC_CLIENT_IDS.filter(i => i !== scWorkingId)] : SC_CLIENT_IDS;
+  for (const cid of ids) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 7000);
+      const r = await fetch(`https://api-v2.soundcloud.com/search/tracks?q=${encodeURIComponent(query)}&client_id=${cid}&limit=20`, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!r.ok) continue;
+      const d = await r.json();
+      if (d.collection && d.collection.length) {
+        scWorkingId = cid;
+        return d.collection.map(it => ({
+          title: it.title,
+          artist: it.user && it.user.username ? it.user.username : 'SoundCloud',
+          platform: 'soundcloud',
+          url: it.permalink_url,
+          duration: (it.duration || 0) / 1000,
+          thumb: it.artwork_url ? it.artwork_url.replace('-large', '-t120x120') : null
+        }));
+      }
+    } catch (e) { /* следующий ключ */ }
+  }
+  return null;
+}
+
+async function doSearch() {
+  const query = $('q').value.trim();
+  if (!query) return;
+  const engine = $('engine').value;
+
+  // 1. Прямая ссылка
+  const ytId = parseYouTubeId(query);
+  if (ytId) { addTrack({ title: 'YouTube • ' + ytId, artist: 'по ссылке', platform: 'youtube', videoId: ytId }); return; }
+  if (query.includes('soundcloud.com')) { addTrack({ title: 'SoundCloud трек', artist: 'по ссылке', platform: 'soundcloud', url: query }); return; }
+
+  // 2. Поиск по словам на выбранной платформе
+  renderResults(null, 'Ищу «' + query + '» на ' + (engine === 'soundcloud' ? 'SoundCloud' : 'YouTube') + '…');
+
+  // 2a. SoundCloud
+  if (engine === 'soundcloud') {
+    const found = await searchSoundcloud(query);
+    if (found && found.length) {
+      results = found;
+      renderResults(results, 'Найдено на SoundCloud — ткни на трек, чтобы запустить');
+      return;
+    }
+    renderResults([], 'SoundCloud не ответил (публичные ключи отозваны). Попробуй поиск на YouTube или вставь прямую ссылку на трек.');
+    return;
+  }
+
+  // 2b. YouTube: официальный API, если есть ключ
+  if (apiKey) {
+    try {
+      const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=15&q=${encodeURIComponent(query)}&key=${apiKey}`);
+      const d = await r.json();
+      if (d.items && d.items.length) {
+        results = d.items.map(it => ({
+          title: it.snippet.title.replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'"),
+          artist: it.snippet.channelTitle,
+          platform: 'youtube',
+          videoId: it.id.videoId,
+          thumb: it.snippet.thumbnails.default.url
+        }));
+        renderResults(results, 'Найдено через YouTube API');
+        return;
+      }
+      if (d.error) throw new Error(d.error.message);
+    } catch (e) { /* ключ не сработал — пробуем дальше */ }
+  }
+
+  // 2b. Публичные Piped-инстансы (без ключа)
+  for (const base of PIPED_INSTANCES) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 6000);
+      const r = await fetch(`${base}/search?q=${encodeURIComponent(query)}&filter=music_songs`, { signal: ctrl.signal });
+      clearTimeout(t);
+      const d = await r.json();
+      if (d.items && d.items.length) {
+        results = d.items.map(it => ({
+          title: it.title,
+          artist: it.uploaderName,
+          platform: 'youtube',
+          videoId: (it.url || '').split('v=')[1] || it.id,
+          duration: it.duration
+        }));
+        renderResults(results, 'Найдено через Piped');
+        return;
+      }
+    } catch (e) { /* следующий инстанс */ }
+  }
+
+  renderResults([], 'Поиск не удался: публичные зеркала недоступны. Добавь YouTube API-ключ в настройках (⚙) или вставь прямую ссылку.');
+}
+
+function renderResults(items, status) {
+  const box = $('results');
+  box.innerHTML = '';
+  if (items === null) { box.innerHTML = `<div class="empty">${status}</div>`; return; }
+  if (!items.length) { box.innerHTML = `<div class="empty">${status}</div>`; return; }
+  items.forEach(it => {
+    const el = document.createElement('div');
+    el.className = 'item';
+    const iconHtml = it.thumb
+      ? `<div class="ic"><img src="${it.thumb}" alt="" style="width:100%;height:100%;border-radius:9px;object-fit:cover"></div>`
+      : `<div class="ic ${it.platform === 'youtube' ? 'yt' : 'sc'}">${it.platform === 'youtube' ? '▶' : '☁'}</div>`;
+    el.innerHTML = `${iconHtml}<div class="meta"><div class="t">${esc(it.title)}</div><div class="a">${esc(it.artist)}${it.duration ? ' • ' + fmt(it.duration) : ''}</div></div>`;
+    el.onclick = () => addTrack(it);
+    box.appendChild(el);
+  });
+}
+
+// ---------- playlist ----------
+function addTrack(track) {
+  track.id = Date.now() + '' + playlist.length;
+  playlist.push(track);
+  renderPlaylist();
+  playTrack(playlist.length - 1);
+}
+
+function renderPlaylist() {
+  const box = $('playlist');
+  $('plStatus').textContent = playlist.length + ' треков';
+  box.innerHTML = '';
+  if (!playlist.length) { box.innerHTML = '<div class="empty">Плейлист пуст</div>'; return; }
+  playlist.forEach((t, i) => {
+    const el = document.createElement('div');
+    el.className = 'item' + (i === currentIndex ? ' active' : '');
+    el.innerHTML = `<div class="ic ${t.platform === 'youtube' ? 'yt' : 'sc'}">${t.platform === 'youtube' ? '▶' : '☁'}</div>
+      <div class="meta"><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)}</div></div>
+      <button class="x">✕</button>`;
+    el.onclick = () => playTrack(i);
+    el.querySelector('.x').onclick = e => { e.stopPropagation(); removeTrack(i); };
+    box.appendChild(el);
+  });
+}
+
+function removeTrack(i) {
+  playlist.splice(i, 1);
+  if (currentIndex === i) { currentIndex = -1; stopPlayback(); }
+  else if (currentIndex > i) currentIndex--;
+  renderPlaylist();
+}
+
+function stopPlayback() {
+  $('videoBox').innerHTML = '';
+  $('videoBox').appendChild($('placeholder'));
+  $('placeholder').style.display = '';
+  isPlaying = false; updatePlayIcon();
+  vizMode = null;
+}
+
+// ---------- playback ----------
+let currentAudio = null;
+
+function playTrack(i) {
+  if (i < 0 || i >= playlist.length) return;
+  currentIndex = i;
+  const t = playlist[i];
+  $('nowTitle').textContent = t.title;
+  $('nowArtist').textContent = t.artist;
+
+  const box = $('videoBox');
+  box.innerHTML = '';
+
+  if (t.platform === 'youtube') {
+    box.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${t.videoId}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+    startViz('simulated'); // iframe не даёт доступ к аудио — анимируем синхронно с "играет"
+    isPlaying = true;
+  } else if (t.platform === 'soundcloud') {
+    box.innerHTML = `<iframe src="https://w.soundcloud.com/player/?url=${encodeURIComponent(t.url)}&auto_play=true&color=%233b82f6" allow="autoplay"></iframe>`;
+    startViz('simulated');
+    isPlaying = true;
+  } else if (t.platform === 'local') {
+    const audio = new Audio(t.objectUrl);
+    audio.volume = $('volume').value / 100;
+    audio.play();
+    currentAudio = audio;
+    audio.onended = nextTrack;
+    box.innerHTML = '';
+    const ap = document.createElement('div');
+    ap.className = 'placeholder';
+    ap.innerHTML = '<div>▶ Локальный файл играет. Спектр — реальный.</div>';
+    box.appendChild(ap);
+    attachRealViz(audio);
+    isPlaying = true;
+  }
+  updatePlayIcon();
+  renderPlaylist();
+}
+
+function togglePlay() {
+  if (currentIndex === -1) { if (playlist.length) playTrack(0); return; }
+  const t = playlist[currentIndex];
+  if (t.platform === 'local' && currentAudio) {
+    if (currentAudio.paused) { currentAudio.play(); isPlaying = true; }
+    else { currentAudio.pause(); isPlaying = false; }
+  } else {
+    isPlaying = !isPlaying; // для iframe управляет сам YouTube-плеер
+  }
+  updatePlayIcon();
+}
+
+function nextTrack() { if (playlist.length) playTrack((currentIndex + 1) % playlist.length); }
+function prevTrack() { if (playlist.length) playTrack((currentIndex - 1 + playlist.length) % playlist.length); }
+
+function setVolume(v) { if (currentAudio) currentAudio.volume = v / 100; }
+
+function updatePlayIcon() {
+  $('playIcon').innerHTML = isPlaying
+    ? '<path d="M6 19h4V5H6zm8-14v14h4V5z"/>'
+    : '<path d="M8 5v14l11-7z"/>';
+  $('vizLabel').textContent = isPlaying ? 'Визуализатор • ' + (vizMode === 'real' ? 'реальный спектр' : 'режим под бит') : 'Визуализатор (пауза)';
+}
+
+// ---------- visualizer ----------
+const canvas = $('viz');
+const ctx = canvas.getContext('2d');
+let vizMode = null;       // 'simulated' | 'real' | null
+let analyser = null;
+let dataArray = null;
+let phase = 0;
+
+function resizeCanvas() {
+  const r = canvas.getBoundingClientRect();
+  canvas.width = r.width * devicePixelRatio;
+  canvas.height = r.height * devicePixelRatio;
+}
+window.addEventListener('resize', resizeCanvas);
+
+function attachRealViz(audioEl) {
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const src = ac.createMediaElementSource(audioEl);
+    analyser = ac.createAnalyser();
+    analyser.fftSize = 128;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    src.connect(analyser);
+    analyser.connect(ac.destination);
+    startViz('real');
+  } catch (e) { startViz('simulated'); }
+}
+
+function startViz(mode) {
+  if (mode !== 'real') { analyser = null; }
+  vizMode = mode;
+  resizeCanvas();
+}
+
+function draw() {
+  requestAnimationFrame(draw);
+  if (!vizMode) { ctx.clearRect(0, 0, canvas.width, canvas.height); return; }
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const bars = 40;
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+
+  let values = new Array(bars).fill(0);
+  if (vizMode === 'real' && analyser && isPlaying) {
+    analyser.getByteFrequencyData(dataArray);
+    for (let i = 0; i < bars; i++) values[i] = dataArray[Math.floor(i * dataArray.length / bars)] / 255;
+  } else if (vizMode === 'simulated' && isPlaying) {
+    phase += 0.09;
+    for (let i = 0; i < bars; i++) {
+      const beat = Math.pow(Math.max(0, Math.sin(phase * 2.2)), 6);   // пульс "бита"
+      const noise = 0.35 * Math.sin(i * 0.55 + phase * 3) + 0.3 * Math.sin(i * 0.21 - phase * 1.7);
+      const center = 1 - Math.abs(i - bars / 2) / (bars / 2);          // горка к центру
+      values[i] = Math.max(0, Math.min(1, 0.15 + beat * 0.6 + noise * 0.3 + center * 0.35));
+    }
+  } else {
+    for (let i = 0; i < bars; i++) values[i] = 0.05;
+  }
+
+  const gap = 3 * devicePixelRatio;
+  const bw = (w - gap * (bars - 1)) / bars;
+  for (let i = 0; i < bars; i++) {
+    const bh = Math.max(3 * devicePixelRatio, values[i] * h);
+    const x = i * (bw + gap);
+    const grad = ctx.createLinearGradient(0, h - bh, 0, h);
+    grad.addColorStop(0, accent);
+    grad.addColorStop(1, 'rgba(255,255,255,0.08)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x, h - bh, bw, bh, 3 * devicePixelRatio) : ctx.rect(x, h - bh, bw, bh);
+    ctx.fill();
+  }
+}
+requestAnimationFrame(draw);
+
+// ---------- local file ----------
+function loadLocalFile(file) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  addTrack({ title: file.name, artist: 'локальный файл', platform: 'local', objectUrl: url });
+  closeSettings();
+}
+
+// ---------- settings ----------
+function openSettings() { $('settingsModal').classList.add('open'); }
+function closeSettings() { $('settingsModal').classList.remove('open'); }
+function saveSettings() {
+  apiKey = $('apiKeyInput').value.trim();
+  localStorage.setItem('muzik_apikey', apiKey);
+  closeSettings();
+}
+$('settingsModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeSettings(); });
+
+function setTheme(color, glow, el) {
+  document.documentElement.style.setProperty('--accent', color);
+  document.documentElement.style.setProperty('--accent-glow', glow);
+  document.querySelectorAll('.dot').forEach(d => d.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+
+// Enter в поиске
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+// helpers
+function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmt(sec) { if (!sec || sec < 0) return ''; sec = Math.round(sec); return Math.floor(sec/60) + ':' + String(sec%60).padStart(2,'0'); }
+</script>
+</body>
+</html>

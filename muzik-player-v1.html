@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muzik player</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & Segoe UI style -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        winDark: '#0b1329',
+                        winCard: 'rgba(15, 23, 42, 0.65)',
+                        winSidebar: 'rgba(10, 16, 35, 0.75)',
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --accent-color: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.4);
+            --glass-blur: 20px;
+        }
+
+        body {
+            background-color: #070c19;
+            color: #f1f5f9;
+            user-select: none;
+        }
+
+        /* Abstract Windows 11 Curved Wallpaper Effect */
+        .fluent-bg {
+            background: 
+                radial-gradient(circle at 90% 40%, rgba(30, 64, 175, 0.45) 0%, transparent 60%),
+                radial-gradient(circle at 10% 80%, rgba(139, 92, 246, 0.25) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.9) 0%, #050914 100%);
+        }
+
+        .fluent-wave {
+            position: absolute;
+            right: -5%;
+            top: -10%;
+            width: 70%;
+            height: 120%;
+            background: radial-gradient(ellipse at center, rgba(59, 130, 246, 0.15) 0%, rgba(29, 78, 216, 0.05) 50%, transparent 75%);
+            border-radius: 40% 60% 70% 30% / 40% 50% 60% 70%;
+            filter: blur(40px);
+            pointer-events: none;
+            animation: waveFloat 18s ease-in-out infinite alternate;
+        }
+
+        @keyframes waveFloat {
+            0% { transform: rotate(0deg) scale(1); }
+            100% { transform: rotate(15deg) scale(1.1); }
+        }
+
+        /* Dynamic Theme Accent Utilities */
+        .theme-accent-bg {
+            background-color: var(--accent-color) !important;
+        }
+        .theme-accent-text {
+            color: var(--accent-color) !important;
+        }
+        .theme-accent-border {
+            border-color: var(--accent-color) !important;
+        }
+        .theme-accent-glow {
+            box-shadow: 0 0 25px var(--accent-glow) !important;
+        }
+
+        /* Acrylic Glassmorphism Panels */
+        .acrylic-panel {
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .acrylic-card {
+            background: rgba(20, 30, 55, 0.45);
+            backdrop-filter: blur(calc(var(--glass-blur) * 0.7));
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .acrylic-card:hover {
+            border-color: rgba(255, 255, 255, 0.18);
+            background: rgba(30, 45, 80, 0.5);
+        }
+
+        /* Sidebar Nav Item Active Styling */
+        .nav-item {
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+        }
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 25%;
+            height: 50%;
+            width: 3.5px;
+            background-color: var(--accent-color);
+            border-radius: 0 4px 4px 0;
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        /* Equalizer Animation */
+        .eq-bar {
+            animation: bounce 1.2s ease-in-out infinite alternate;
+        }
+        .eq-bar:nth-child(1) { animation-delay: 0.1s; }
+        .eq-bar:nth-child(2) { animation-delay: 0.4s; }
+        .eq-bar:nth-child(3) { animation-delay: 0.2s; }
+        .eq-bar:nth-child(4) { animation-delay: 0.5s; }
+
+        @keyframes bounce {
+            0% { height: 4px; }
+            100% { height: 24px; }
+        }
+
+        /* Toggle Switch Styling */
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 22px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .toggle-switch.active {
+            background: var(--accent-color);
+        }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 16px;
+            height: 16px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.25s ease;
+        }
+        .toggle-switch.active::after {
+            transform: translateX(22px);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="fluent-bg min-h-screen flex items-center justify-center p-2 sm:p-6 overflow-hidden">
+
+    <!-- Ambient Waves -->
+    <div class="fluent-wave"></div>
+
+    <!-- Main Windows 11 Style Application Window -->
+    <div class="w-full max-w-6xl h-[90vh] min-h-[640px] acrylic-panel rounded-2xl shadow-2xl flex flex-col overflow-hidden relative border border-slate-700/40">
+        
+        <!-- Windows Top TitleBar -->
+        <div class="h-11 px-4 flex items-center justify-between border-b border-white/5 select-none shrink-0 bg-black/20">
+            <div class="flex items-center gap-3">
+                <div class="w-6 h-6 rounded-lg theme-accent-bg flex items-center justify-center text-white text-xs font-black shadow-md">
+                    M
+                </div>
+                <span class="text-xs font-semibold tracking-wider text-slate-300">Muzik player</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/5">v2.4 Pro</span>
+            </div>
+
+            <!-- Search Quick Bar in TitleBar -->
+            <div class="hidden md:flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded-lg px-3 py-1 w-80">
+                <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs"></i>
+                <input type="text" id="global-search-input" placeholder="Поиск песни или ссылки (YouTube, SoundCloud)..." 
+                       class="bg-transparent text-xs w-full text-slate-200 placeholder-slate-500 focus:outline-none">
+            </div>
+
+            <!-- Window Action Buttons -->
+            <div class="flex items-center gap-3 text-slate-400">
+                <button class="hover:text-white transition text-xs"><i class="fa-solid fa-minus"></i></button>
+                <button class="hover:text-white transition text-xs"><i class="fa-regular fa-square"></i></button>
+                <button class="hover:text-red-400 transition text-xs"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+
+        <!-- Main Body Layout: Sidebar + View Content -->
+        <div class="flex-1 flex overflow-hidden">
+            
+            <!-- Left Icon Sidebar -->
+            <aside class="w-16 sm:w-20 bg-slate-950/40 border-r border-white/5 flex flex-col items-center justify-between py-4 shrink-0">
+                
+                <!-- Main Nav Buttons -->
+                <div class="flex flex-col gap-3 w-full items-center">
+                    <button onclick="switchTab('main')" id="nav-main" class="nav-item active w-12 h-12 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition" title="Главная / Плеер">
+                        <i class="fa-solid fa-house text-lg"></i>
+                        <span class="text-[9px] mt-1 font-medium">Главная</span>
+                    </button>
+
+                    <button onclick="switchTab('playlist')" id="nav-playlist" class="nav-item w-12 h-12 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition" title="Мой Плейлист">
+                        <i class="fa-solid fa-list-music text-lg"></i>
+                        <span class="text-[9px] mt-1 font-medium">Плейлист</span>
+                    </button>
+
+                    <button onclick="switchTab('settings')" id="nav-settings" class="nav-item w-12 h-12 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition" title="Настройки">
+                        <i class="fa-solid fa-sliders text-lg"></i>
+                        <span class="text-[9px] mt-1 font-medium">Опции</span>
+                    </button>
+                </div>
+
+                <!-- Developers Tab Button -->
+                <div class="flex flex-col items-center w-full">
+                    <button onclick="switchTab('developers')" id="nav-developers" class="nav-item w-12 h-12 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition" title="Разработчики">
+                        <i class="fa-solid fa-code text-lg"></i>
+                        <span class="text-[9px] mt-1 font-medium">Авторы</span>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Content Display Views Area -->
+            <main class="flex-1 overflow-y-auto p-4 sm:p-6 relative">
+                
+                <!-- VIEW 1: MAIN PLAYER & MUSIC STAGE -->
+                <section id="view-main" class="view-panel flex flex-col gap-6">
+                    
+                    <!-- Search Header (Mobile) -->
+                    <div class="flex md:hidden items-center gap-2 bg-slate-900/70 border border-white/10 rounded-xl px-3 py-2">
+                        <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs"></i>
+                        <input type="text" id="global-search-input-mobile" placeholder="Поиск песни или ссылки..." 
+                               class="bg-transparent text-xs w-full text-slate-200 placeholder-slate-500 focus:outline-none">
+                    </div>
+
+                    <!-- Top Banner / Player Stage -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        
+                        <!-- Left Media Canvas View (7 cols) -->
+                        <div class="lg:col-span-7 flex flex-col gap-4">
+                            
+                            <div class="acrylic-card rounded-2xl p-4 border border-white/10 flex flex-col gap-4 relative overflow-hidden shadow-xl">
+                                
+                                <!-- Track Info Status -->
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2.5">
+                                        <span id="platform-badge" class="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider theme-accent-bg text-white shadow-md">
+                                            YouTube
+                                        </span>
+                                        <span id="current-track-title-top" class="text-xs text-slate-300 font-medium truncate max-w-[240px]">
+                                            Выберите трек для воспроизведения
+                                        </span>
+                                    </div>
+
+                                    <!-- Visualizer -->
+                                    <div id="visualizer" class="flex items-end gap-1 h-5 opacity-40 transition-opacity">
+                                        <div class="eq-bar w-1 theme-accent-bg rounded-full"></div>
+                                        <div class="eq-bar w-1 theme-accent-bg rounded-full"></div>
+                                        <div class="eq-bar w-1 theme-accent-bg rounded-full"></div>
+                                        <div class="eq-bar w-1 theme-accent-bg rounded-full"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Embed Container Frame -->
+                                <div id="media-frame-box" class="w-full aspect-video rounded-xl bg-black/60 border border-white/10 overflow-hidden relative flex items-center justify-center">
+                                    <div id="embed-placeholder" class="flex flex-col items-center gap-3 text-center p-6">
+                                        <div class="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-300">
+                                            <i class="fa-solid fa-music text-2xl theme-accent-text"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="text-sm font-bold text-slate-200">Плеер готов к работе</h4>
+                                            <p class="text-xs text-slate-400 mt-1">Введите ссылку или название трека в строке поиска выше</p>
+                                        </div>
+                                    </div>
+                                    <div id="embed-container" class="w-full h-full hidden"></div>
+                                </div>
+
+                                <!-- Player Quick Bar -->
+                                <div class="flex items-center justify-between gap-4 pt-1">
+                                    <div class="flex items-center gap-2 sm:gap-3">
+                                        <button onclick="prevTrack()" class="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 flex items-center justify-center transition">
+                                            <i class="fa-solid fa-backward-step text-xs"></i>
+                                        </button>
+                                        <button onclick="togglePlayPause()" id="btn-play" class="w-11 h-11 rounded-xl theme-accent-bg text-white flex items-center justify-center theme-accent-glow transition">
+                                            <i id="play-icon" class="fa-solid fa-play text-sm ml-0.5"></i>
+                                        </button>
+                                        <button onclick="nextTrack()" class="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 flex items-center justify-center transition">
+                                            <i class="fa-solid fa-forward-step text-xs"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="flex-1 text-center hidden sm:block">
+                                        <h3 id="now-playing-title" class="text-xs font-bold text-slate-200 truncate">Muzik Player Vibe</h3>
+                                        <p id="now-playing-artist" class="text-[11px] text-slate-400 truncate">allingan & Gemini Studio</p>
+                                    </div>
+
+                                    <div class="flex items-center gap-2">
+                                        <i class="fa-solid fa-volume-high text-slate-400 text-xs"></i>
+                                        <input type="range" id="volume-slider" min="0" max="100" value="80" 
+                                               class="w-16 sm:w-24 accent-blue-500 bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Right Quick Playlist & History (5 cols) -->
+                        <div class="lg:col-span-5 flex flex-col gap-4">
+                            
+                            <!-- Search / Direct URL Add Box -->
+                            <div class="acrylic-card rounded-2xl p-4 border border-white/10 flex flex-col gap-3">
+                                <h3 class="text-xs font-bold text-slate-300 flex items-center gap-2">
+                                    <i class="fa-solid fa-plus-circle theme-accent-text"></i>
+                                    Быстрый добавление
+                                </h3>
+                                <form id="add-track-form" class="flex gap-2">
+                                    <input type="text" id="track-input-url" placeholder="Вставь ссылку или имя песни..." 
+                                           class="flex-1 bg-slate-900/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500">
+                                    <button type="submit" class="theme-accent-bg text-white text-xs font-bold px-4 py-2 rounded-xl hover:opacity-90 transition">
+                                        Добавить
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Playlist Container -->
+                            <div class="acrylic-card rounded-2xl p-4 border border-white/10 flex-1 flex flex-col gap-3 min-h-[300px]">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-xs font-bold text-slate-300 flex items-center gap-2">
+                                        <i class="fa-solid fa-list theme-accent-text"></i>
+                                        Плейлист сессии
+                                    </h3>
+                                    <span id="playlist-count" class="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/5">0 треков</span>
+                                </div>
+
+                                <div id="main-playlist-items" class="flex-1 overflow-y-auto pr-1 flex flex-col gap-2 max-h-[320px]">
+                                    <!-- Dynamic Items -->
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </section>
+
+                <!-- VIEW 2: FULL PLAYLIST MANAGER -->
+                <section id="view-playlist" class="view-panel hidden flex-col gap-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-100">Управление плейлистом</h2>
+                            <p class="text-xs text-slate-400">Коллекция сохраненных треков</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="loadDemoTracks()" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-300 font-medium transition">
+                                <i class="fa-solid fa-wand-magic-sparkles mr-1 theme-accent-text"></i> Загрузить демо
+                            </button>
+                            <button onclick="clearPlaylist()" class="px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-xs text-red-400 font-medium transition">
+                                <i class="fa-regular fa-trash-can mr-1"></i> Очистить
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="full-playlist-container" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <!-- Full playlist cards -->
+                    </div>
+                </section>
+
+                <!-- VIEW 3: CUSTOMIZATION SETTINGS -->
+                <section id="view-settings" class="view-panel hidden flex-col gap-6 max-w-3xl">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-100">Панель управления & Кастомизация</h2>
+                        <p class="text-xs text-slate-400">Настройте внешний вид и визуальные эффекты Музыкального Плеера</p>
+                    </div>
+
+                    <div class="acrylic-card rounded-2xl p-5 border border-white/10 flex flex-col gap-5">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Персонализация цвета</h3>
+                        
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button onclick="setThemeAccent('#3b82f6', 'rgba(59, 130, 246, 0.4)')" class="w-10 h-10 rounded-xl bg-blue-500 border-2 border-white/20 hover:scale-105 transition flex items-center justify-center text-white"><i class="fa-solid fa-check text-xs"></i></button>
+                            <button onclick="setThemeAccent('#8b5cf6', 'rgba(139, 92, 246, 0.4)')" class="w-10 h-10 rounded-xl bg-purple-500 border-2 border-white/20 hover:scale-105 transition"></button>
+                            <button onclick="setThemeAccent('#ec4899', 'rgba(236, 72, 153, 0.4)')" class="w-10 h-10 rounded-xl bg-pink-500 border-2 border-white/20 hover:scale-105 transition"></button>
+                            <button onclick="setThemeAccent('#10b981', 'rgba(16, 185, 129, 0.4)')" class="w-10 h-10 rounded-xl bg-emerald-500 border-2 border-white/20 hover:scale-105 transition"></button>
+                            <button onclick="setThemeAccent('#f97316', 'rgba(249, 115, 22, 0.4)')" class="w-10 h-10 rounded-xl bg-orange-500 border-2 border-white/20 hover:scale-105 transition"></button>
+                            <button onclick="setThemeAccent('#06b6d4', 'rgba(6, 182, 212, 0.4)')" class="w-10 h-10 rounded-xl bg-cyan-500 border-2 border-white/20 hover:scale-105 transition"></button>
+                        </div>
+                    </div>
+
+                    <!-- Options Grid matching screenshot -->
+                    <div class="acrylic-card rounded-2xl p-5 border border-white/10 flex flex-col gap-4">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Параметры интерфейса</h3>
+
+                        <div class="flex items-center justify-between py-2 border-b border-white/5">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-200">Режим префикса & Fluent Glass</p>
+                                <p class="text-[11px] text-slate-400">Включить размытие заднего плана (Acrylic)</p>
+                            </div>
+                            <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                        </div>
+
+                        <div class="flex items-center justify-between py-2 border-b border-white/5">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-200">Тёмный режим (Dark Theme)</p>
+                                <p class="text-[11px] text-slate-400">Глубокая ночная палитра интерфейса</p>
+                            </div>
+                            <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                        </div>
+
+                        <div class="flex items-center justify-between py-2 border-b border-white/5">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-200">Анимация эквалайзера</p>
+                                <p class="text-[11px] text-slate-400">Показывать визуализатор при воспроизведении</p>
+                            </div>
+                            <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                        </div>
+
+                        <div class="flex items-center justify-between py-2">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-200">Окно поверх других окон</p>
+                                <p class="text-[11px] text-slate-400">Закрепить плеер на рабочем столе</p>
+                            </div>
+                            <div class="toggle-switch" onclick="toggleSwitch(this)"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 4: DEVELOPERS TAB ("allingan & Gemeni") -->
+                <section id="view-developers" class="view-panel hidden flex-col gap-6">
+                    <div>
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-xl font-extrabold text-slate-100">Команда Разработчиков</h2>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold theme-accent-bg text-white">Official Creators</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1">Проект создан совместными усилиями **allingan** и **Gemini AI**</p>
+                    </div>
+
+                    <!-- Creators Cards Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        
+                        <!-- Developer Card 1: allingan -->
+                        <div class="acrylic-card rounded-2xl p-5 border border-white/10 flex items-start gap-4 relative overflow-hidden group">
+                            <div class="w-14 h-14 rounded-2xl theme-accent-bg flex items-center justify-center text-white text-2xl font-black shadow-lg shrink-0">
+                                A
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-base font-bold text-slate-100">allingan</h3>
+                                    <span class="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">Lead Dev</span>
+                                </div>
+                                <p class="text-xs theme-accent-text font-medium mt-0.5">Идея, Архитектура & Дизайн</p>
+                                <p class="text-xs text-slate-400 mt-2">Автор концепта универсального плеера и UI-дизайна в стиле Windows Fluent Glass.</p>
+                                
+                                <div class="flex items-center gap-2 mt-4 text-xs text-slate-400">
+                                    <span class="px-2 py-1 rounded-lg bg-white/5 border border-white/5"><i class="fa-solid fa-code text-blue-400 mr-1"></i> Fullstack</span>
+                                    <span class="px-2 py-1 rounded-lg bg-white/5 border border-white/5"><i class="fa-solid fa-palette text-purple-400 mr-1"></i> UI/UX</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Developer Card 2: Gemini -->
+                        <div class="acrylic-card rounded-2xl p-5 border border-white/10 flex items-start gap-4 relative overflow-hidden group">
+                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-500 flex items-center justify-center text-white text-2xl font-black shadow-lg shrink-0">
+                                <i class="fa-solid fa-sparkles"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-base font-bold text-slate-100">Gemini</h3>
+                                    <span class="text-[10px] px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono">AI Partner</span>
+                                </div>
+                                <p class="text-xs text-purple-400 font-medium mt-0.5">Кодогенерация & Оптимизация</p>
+                                <p class="text-xs text-slate-400 mt-2">Мощная нейросетевая модель от Google, отвечающая за верстку, логику и парсинг треков.</p>
+                                
+                                <div class="flex items-center gap-2 mt-4 text-xs text-slate-400">
+                                    <span class="px-2 py-1 rounded-lg bg-white/5 border border-white/5"><i class="fa-solid fa-brain text-emerald-400 mr-1"></i> AI Core</span>
+                                    <span class="px-2 py-1 rounded-lg bg-white/5 border border-white/5"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Real-time Fix</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Project Info Card -->
+                    <div class="acrylic-card rounded-2xl p-5 border border-white/10 flex flex-col gap-3">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">О проекте Muzik Player</h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Muzik Player — это стильное клиентское веб-приложение с интегрированным встроенным проигрывателем для YouTube и SoundCloud. Платформа поддерживает автоматический поиск по названиям, управление локальным плейлистом и гибкую систему кастомизации оформления.
+                        </p>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+
+        <!-- Notification Toast -->
+        <div id="toast" class="fixed bottom-6 right-6 acrylic-card border border-white/10 px-4 py-3 rounded-xl text-xs font-semibold text-slate-200 transform translate-y-24 opacity-0 transition-all duration-300 z-50 flex items-center gap-3 shadow-2xl">
+            <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+            <span id="toast-msg">Уведомление</span>
+        </div>
+
+    </div>
+
+    <!-- Application Script Logic -->
+    <script>
+        // --- App State ---
+        let playlist = [
+            {
+                id: '1',
+                title: 'Lofi Hip Hop Radio - Beats to Relax/Study to',
+                artist: 'Lofi Girl',
+                platform: 'youtube',
+                embedUrl: `https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+            },
+            {
+                id: '2',
+                title: 'Chill Synthwave Track',
+                artist: 'SoundCloud Vibe',
+                platform: 'soundcloud',
+                embedUrl: 'https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/293923233&color=%233b82f6&auto_play=true'
+            }
+        ];
+
+        let currentIndex = -1;
+        let isPlaying = false;
+
+        // --- DOM Elements ---
+        const embedContainer = document.getElementById('embed-container');
+        const embedPlaceholder = document.getElementById('embed-placeholder');
+        const nowPlayingTitle = document.getElementById('now-playing-title');
+        const nowPlayingArtist = document.getElementById('now-playing-artist');
+        const currentTrackTitleTop = document.getElementById('current-track-title-top');
+        const platformBadge = document.getElementById('platform-badge');
+        const playIcon = document.getElementById('play-icon');
+        const visualizer = document.getElementById('visualizer');
+        const mainPlaylistItems = document.getElementById('main-playlist-items');
+        const fullPlaylistContainer = document.getElementById('full-playlist-container');
+
+        // Initial Load
+        window.onload = () => {
+            renderPlaylist();
+            setupSearchListeners();
+        };
+
+        // Navigation Tab Switching
+        function switchTab(tabId) {
+            document.querySelectorAll('.view-panel').forEach(panel => panel.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            document.getElementById(`nav-${tabId}`).classList.add('active');
+        }
+
+        // Toggle Buttons logic
+        function toggleSwitch(element) {
+            element.classList.toggle('active');
+            showToast('Настройка обновлена');
+        }
+
+        // Accent Color Customizer
+        function setThemeAccent(color, glow) {
+            document.documentElement.style.setProperty('--accent-color', color);
+            document.documentElement.style.setProperty('--accent-glow', glow);
+            showToast('Акцентный цвет изменен');
+        }
+
+        // Search & Track Parse logic
+        function setupSearchListeners() {
+            const handleSearch = (query) => {
+                if (!query.trim()) return;
+                
+                let track;
+                if (query.includes('youtube.com') || query.includes('youtu.be')) {
+                    let videoId = query.includes('v=') ? query.split('v=')[1].split('&')[0] : query.split('youtu.be/')[1].split('?')[0];
+                    track = {
+                        id: Date.now().toString(),
+                        title: `YouTube Трек (${videoId})`,
+                        artist: 'YouTube Video',
+                        platform: 'youtube',
+                        embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+                    };
+                } else if (query.includes('soundcloud.com')) {
+                    track = {
+                        id: Date.now().toString(),
+                        title: 'SoundCloud Аудио',
+                        artist: 'SoundCloud',
+                        platform: 'soundcloud',
+                        embedUrl: `https://w.soundcloud.com/player/?url=${encodeURIComponent(query)}&color=%233b82f6&auto_play=true`
+                    };
+                } else {
+                    // Search Fallback using YouTube Search Embed
+                    track = {
+                        id: Date.now().toString(),
+                        title: query,
+                        artist: 'Поисковый запрос',
+                        platform: 'youtube',
+                        embedUrl: `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(query)}&autoplay=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+                    };
+                }
+
+                playlist.push(track);
+                renderPlaylist();
+                playTrack(playlist.length - 1);
+                showToast('Трек добавлен и запущен');
+            };
+
+            document.getElementById('global-search-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleSearch(e.target.value);
+                    e.target.value = '';
+                }
+            });
+
+            document.getElementById('add-track-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = document.getElementById('track-input-url');
+                handleSearch(input.value);
+                input.value = '';
+            });
+        }
+
+        // Render Playlists
+        function renderPlaylist() {
+            document.getElementById('playlist-count').textContent = `${playlist.length} треков`;
+            mainPlaylistItems.innerHTML = '';
+            fullPlaylistContainer.innerHTML = '';
+
+            playlist.forEach((track, index) => {
+                const isActive = index === currentIndex;
+
+                // Main Sidebar Card
+                const card = document.createElement('div');
+                card.className = `p-2.5 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition ${
+                    isActive ? 'bg-white/10 border-blue-500/60' : 'bg-black/20 border-white/5 hover:bg-white/5'
+                }`;
+                card.onclick = () => playTrack(index);
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div class="w-8 h-8 rounded-lg ${track.platform === 'youtube' ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'} flex items-center justify-center text-xs font-bold shrink-0">
+                            <i class="${track.platform === 'youtube' ? 'fa-brands fa-youtube' : 'fa-brands fa-soundcloud'}"></i>
+                        </div>
+                        <div class="truncate">
+                            <h4 class="text-xs font-semibold ${isActive ? 'theme-accent-text' : 'text-slate-200'} truncate">${escapeHtml(track.title)}</h4>
+                            <p class="text-[10px] text-slate-400 truncate">${escapeHtml(track.artist)}</p>
+                        </div>
+                    </div>
+                    <button onclick="removeTrack(event, ${index})" class="text-slate-500 hover:text-red-400 p-1 text-xs transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                `;
+                mainPlaylistItems.appendChild(card);
+
+                // Full View Card
+                const fullCard = document.createElement('div');
+                fullCard.className = `acrylic-card p-4 rounded-xl border border-white/10 flex items-center justify-between gap-3`;
+                fullCard.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-slate-300 theme-accent-text">
+                            <i class="fa-solid fa-music"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-200">${escapeHtml(track.title)}</h4>
+                            <p class="text-[11px] text-slate-400">${escapeHtml(track.artist)} (${track.platform})</p>
+                        </div>
+                    </div>
+                    <button onclick="playTrack(${index}); switchTab('main');" class="theme-accent-bg text-white text-xs px-3 py-1.5 rounded-lg hover:opacity-90">
+                        Слушать
+                    </button>
+                `;
+                fullPlaylistContainer.appendChild(fullCard);
+            });
+        }
+
+        // Play Selected Track
+        function playTrack(index) {
+            if (index < 0 || index >= playlist.length) return;
+            currentIndex = index;
+            const track = playlist[currentIndex];
+
+            nowPlayingTitle.textContent = track.title;
+            nowPlayingArtist.textContent = track.artist;
+            currentTrackTitleTop.textContent = track.title;
+            platformBadge.textContent = track.platform.toUpperCase();
+
+            embedPlaceholder.classList.add('hidden');
+            embedContainer.classList.remove('hidden');
+
+            embedContainer.innerHTML = `
+                <iframe src="${track.embedUrl}" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen class="w-full h-full rounded-xl"></iframe>
+            `;
+
+            isPlaying = true;
+            updatePlayIcon();
+            renderPlaylist();
+        }
+
+        function togglePlayPause() {
+            if (currentIndex === -1 && playlist.length > 0) {
+                playTrack(0);
+                return;
+            }
+            isPlaying = !isPlaying;
+            updatePlayIcon();
+        }
+
+        function updatePlayIcon() {
+            if (isPlaying) {
+                playIcon.className = 'fa-solid fa-pause text-sm';
+                visualizer.classList.remove('opacity-40');
+                visualizer.classList.add('opacity-100');
+            } else {
+                playIcon.className = 'fa-solid fa-play text-sm ml-0.5';
+                visualizer.classList.remove('opacity-100');
+                visualizer.classList.add('opacity-40');
+            }
+        }
+
+        function nextTrack() {
+            if (playlist.length === 0) return;
+            playTrack((currentIndex + 1) % playlist.length);
+        }
+
+        function prevTrack() {
+            if (playlist.length === 0) return;
+            playTrack((currentIndex - 1 + playlist.length) % playlist.length);
+        }
+
+        function removeTrack(e, index) {
+            e.stopPropagation();
+            playlist.splice(index, 1);
+            if (currentIndex === index) {
+                embedContainer.innerHTML = '';
+                embedContainer.classList.add('hidden');
+                embedPlaceholder.classList.remove('hidden');
+                currentIndex = -1;
+                isPlaying = false;
+                updatePlayIcon();
+            }
+            renderPlaylist();
+        }
+
+        function clearPlaylist() {
+            playlist = [];
+            currentIndex = -1;
+            embedContainer.innerHTML = '';
+            embedContainer.classList.add('hidden');
+            embedPlaceholder.classList.remove('hidden');
+            renderPlaylist();
+            showToast('Плейлист очищен');
+        }
+
+        function loadDemoTracks() {
+            playlist = [
+                {
+                    id: '1',
+                    title: 'Lofi Hip Hop Radio - Beats to Relax/Study to',
+                    artist: 'Lofi Girl',
+                    platform: 'youtube',
+                    embedUrl: `https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+                },
+                {
+                    id: '2',
+                    title: 'Synthwave Chill Stream',
+                    artist: 'SoundCloud Vibe',
+                    platform: 'soundcloud',
+                    embedUrl: 'https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/293923233&color=%233b82f6&auto_play=true'
+                }
+            ];
+            renderPlaylist();
+            showToast('Демо треки загружены');
+        }
+
+        // Toast Helper
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').textContent = msg;
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }, 2500);
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+    </script>
+</body>
+</html>
