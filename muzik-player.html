@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muzik player</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        winDark: '#0b1329',
+                        winCard: 'rgba(15, 23, 42, 0.65)',
+                        winSidebar: 'rgba(10, 16, 35, 0.75)',
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --accent-color: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.4);
+            --glass-blur: 20px;
+        }
+
+        body {
+            background-color: #050914;
+            color: #f1f5f9;
+            user-select: none;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .ui-root {
+            display: none;
+            position: fixed;
+            inset: 0;
+        }
+        .ui-root.ui-active {
+            display: flex;
+        }
+
+        .ui-choice {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #cbd5e1;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-family: inherit;
+        }
+        .ui-choice:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+        .ui-choice.active {
+            background: var(--accent, var(--accent-color));
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #fff;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .fluent-bg {
+            background:
+                radial-gradient(circle at 90% 40%, rgba(30, 64, 175, 0.45) 0%, transparent 60%),
+                radial-gradient(circle at 10% 80%, rgba(139, 92, 246, 0.25) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.9) 0%, #050914 100%);
+        }
+
+        .fluent-wave {
+            position: absolute;
+            right: -5%;
+            top: -10%;
+            width: 70%;
+            height: 120%;
+            background: radial-gradient(ellipse at center, rgba(59, 130, 246, 0.15) 0%, rgba(29, 78, 216, 0.05) 50%, transparent 75%);
+            border-radius: 40% 60% 70% 30% / 40% 50% 60% 70%;
+            filter: blur(40px);
+            pointer-events: none;
+            animation: waveFloat 18s ease-in-out infinite alternate;
+        }
+
+        @keyframes waveFloat {
+            0% { transform: rotate(0deg) scale(1); }
+            100% { transform: rotate(15deg) scale(1.1); }
+        }
+
+        .theme-accent-bg { background-color: var(--accent-color) !important; }
+        .theme-accent-text { color: var(--accent-color) !important; }
+        .theme-accent-border { border-color: var(--accent-color) !important; }
+        .theme-accent-glow { box-shadow: 0 0 25px var(--accent-glow) !important; }
+
+        .acrylic-panel {
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .acrylic-card {
+            background: rgba(20, 30, 55, 0.45);
+            backdrop-filter: blur(calc(var(--glass-blur) * 0.7));
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .acrylic-card:hover {
+            border-color: rgba(255, 255, 255, 0.18);
+            background: rgba(30, 45, 80, 0.5);
+        }
+
+        .nav-item {
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+        }
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 25%;
+            height: 50%;
+            width: 3.5px;
+            background-color: var(--accent-color);
+            border-radius: 0 4px 4px 0;
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        .eq-bar {
+            animation: bounce 1.2s ease-in-out infinite alternate;
+        }
+        .eq-bar:nth-child(1) { animation-delay: 0.1s; }
+        .eq-bar:nth-child(2) { animation-delay: 0.4s; }
+        .eq-bar:nth-child(3) { animation-delay: 0.2s; }
+        .eq-bar:nth-child(4) { animation-delay: 0.5s; }
+
+        @keyframes bounce {
+            0% { height: 4px; }
+            100% { height: 24px; }
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 22px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background 0.3s;
+            flex-shrink: 0;
+        }
+        .toggle-switch.active { background: var(--accent-color); }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 16px;
+            height: 16px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.25s ease;
+        }
+        .toggle-switch.active::after { transform: translateX(22px); }
+
+        #ui-liquid {
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.5);
+            --bg-gradient: radial-gradient(circle at 20% 30%, #1e1b4b, #0f172a 70%);
+            --glass-bg: rgba(255, 255, 255, 0.07);
+            --glass-border: rgba(255, 255, 255, 0.18);
+            --glass-blur: 25px;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            justify-content: center;
+            align-items: center;
+            transition: background 0.5s ease;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+        #ui-liquid * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        .liquid-bg {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: var(--accent);
+            filter: blur(90px);
+            opacity: 0.35;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: floatGlow 8s infinite alternate ease-in-out;
+        }
+
+        @keyframes floatGlow {
+            0% { transform: translate(-100px, -100px) scale(1); }
+            100% { transform: translate(200px, 150px) scale(1.3); }
+        }
+
+        .app-container {
+            width: 1020px;
+            max-width: calc(100vw - 24px);
+            height: 660px;
+            max-height: calc(100vh - 24px);
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(var(--glass-blur)) saturate(200%);
+            -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(200%);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.3),
+                        inset 0 -1px 1px rgba(0, 0, 0, 0.5);
+            display: flex;
+            position: relative;
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 84px;
+            background: rgba(10, 15, 30, 0.45);
+            border-right: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 0;
+            gap: 20px;
+            flex-shrink: 0;
+        }
+
+        .nav-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: transparent;
+            border: 1px solid transparent;
+        }
+
+        .nav-icon:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+
+        .nav-icon.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 25px var(--accent-glow);
+        }
+
+        .nav-icon svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        .sidebar-bottom { margin-top: auto; }
+
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            min-width: 0;
+        }
+
+        .header-title {
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .tab-pane {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1;
+        }
+
+        .tab-pane.active { display: flex; }
+
+        .glass-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 22px;
+            backdrop-filter: blur(12px);
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15);
+        }
+
+        .search-box { display: flex; gap: 12px; }
+
+        .search-box input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 14px 18px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .search-box input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .search-box select {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 0 16px;
+            color: #fff;
+            outline: none;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .btn {
+            background: var(--accent);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: #fff;
+            padding: 0 24px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 20px var(--accent-glow);
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px var(--accent-glow);
+        }
+
+        .dev-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .dev-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dev-avatar-allingan {
+            width: 110px;
+            height: 110px;
+            border-radius: 16px;
+            background: #f4f4f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            padding: 10px;
+        }
+
+        .dev-avatar-gemini {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #1e293b, #0f172a);
+            border: 2px solid var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 25px var(--accent-glow);
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 24px;
+        }
+
+        .switch input { opacity: 0; width: 0; height: 0; }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .color-pickers {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .color-dot {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.2s;
+        }
+
+        .color-dot:hover { transform: scale(1.15); }
+        .color-dot.active { border-color: #fff; box-shadow: 0 0 15px currentColor; }
+
+        .player-panel {
+            width: 340px;
+            background: rgba(10, 15, 30, 0.55);
+            border-left: 1px solid var(--glass-border);
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .player-screen {
+            width: 100%;
+            height: 190px;
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            flex-shrink: 0;
+        }
+
+        .player-screen iframe { width: 100%; height: 100%; border: none; }
+
+        .track-info {
+            text-align: center;
+            width: 100%;
+        }
+
+        .track-title {
+            font-size: 17px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .track-artist {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .ctrl-btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .ctrl-btn.main {
+            width: 58px;
+            height: 58px;
+            background: var(--accent);
+            box-shadow: 0 0 25px var(--accent-glow);
+        }
+
+        .ctrl-btn:hover { transform: scale(1.08); }
+
+        .volume-container {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .volume-container input {
+            flex: 1;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .queue-box {
+            width: 100%;
+            flex: 1;
+            min-height: 60px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .queue-label {
+            width: 100%;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .queue-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .queue-item:hover { background: rgba(255, 255, 255, 0.09); }
+        .queue-item.active { border-color: var(--accent); background: rgba(255, 255, 255, 0.08); }
+
+        .queue-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .queue-dot.youtube { background: #ff4e45; }
+        .queue-dot.soundcloud { background: #ff7700; }
+
+        .queue-text { min-width: 0; flex: 1; }
+        .queue-title {
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .queue-artist {
+            font-size: 10px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .queue-empty {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 10px;
+        }
+
+        .ui-switch-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .ui-switch-row .ui-choice {
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+    </style>
+</head>
+<body>
+
+    <!-- UI 1: FLUENT GLASS -->
+    <div id="ui-fluent" class="ui-root ui-active fluent-bg items-center justify-center p-2 sm:p-6 overflow-hidden">
+
+        <div class="fluent-wave"></div>
+
+        <div class="w-full max-w-6xl h-[90vh] min-h-[640px] acrylic-panel rounded-2xl shadow-2xl flex flex-col overflow-hidden relative border border-slate-700/40">
+
+            <div class="h-11 px-4 flex items-center justify-between border-b border-white/5 select-none shrink-0 bg-black/20">
+                <div class="flex items-center gap-3">
+                    <div class="w-6 h-6 rounded-lg theme-accent-bg flex items-center justify-center text-white text-xs font-black shadow-md">M</div>
+                    <span class="text-xs font-semibold tracking-wider text-slate-300">Muzik player</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/5">v2.4 Pro</span>
+                </div>
+
+                <div class="hidden md:flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded-lg px-3 py-1 w-80">
+                    <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs"></i>
+                    <input type="text" id="global-search-input" placeholder="Поиск песни или ссылки (YouTube, SoundCloud)..."
+                           class="bg-transparent text-xs w-full text-slate-200 placeholder-slate-500 focus:outline-none">
+                </div>
+
+                <div class="flex items-center gap-3 text-slate-400">
+                    <button class="hover:text-white transition text-xs"><i class="fa-solid fa-minus"></i></button>
+                    <button class="hover:text-white transition text-xs"><i class="fa-regular fa-square"></i></button>
+                    <button class="hover:text-red-400 transition text-xs"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+
+            <div class="flex-1 flex overflow-hidden">
+
+                <aside class="w-16 sm:w-20 bg-slate-950/40 border-r border-white/5 flex flex-col items-center justify-between py-4 shrink-0">
+                    <div class="flex flex-col gap-3 w-full items-center">
+                        <button onclick="fluentSwitchTab('main')" id="nav-main" class="nav-item active w-12 h-12 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition" title="Главная / Плеер">
+                            <i class="fa-solid fa-house text-lg"></i>
+                            <span class="text-[9px] mt-1 font-medium">Главная</span>
+                        </button>
+                        <button onclick="fluentSwitchTab('playlist')" id="nav-playlist" class="nav-item w-12 h-12 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition" title="Мой Плейлист">
+                            <i class="fa-solid fa-list text-lg"></i>
+                            <span class="text-[9px] mt-1 font-medium">Плейлист</span>
+                        </button>
+                        <button onclick="fluentSwitchTab('settings')" id="nav-settings" class="nav-item w-12 h-12 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition" title="Настройки">
+                            <i class="fa-solid fa-sliders text-lg"></i>
+                            <span class="text-[9px] mt-1 font-medium">Опции</span>
+                        </button>
+                    </div>
+                    <div class="flex flex-col items-center w-full">
+                        <button onclick="fluentSwitchTab('developers')" id="nav-developers" class="nav-item w-12 h-12 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition" title="Разработчики">
+                            <i class="fa-solid fa-code text-lg"></i>
+                            <span class="text-[9px] mt-1 font-medium">Авторы</span>
+                        </button>
+                    </div>
+                </aside>
+
+                <main class="flex-1 overflow-y-auto p-4 sm:p-6 relative">
+
+                    <section id="view-main" class="view-panel flex flex-col gap-6">
+
+                        <div class="flex md:hidden items-center gap-2 bg-slate-900/70 border border-white/10 rounded-xl px-3 py-2">
+                            <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs"></i>
+                            <input type="text" id="global-search-input-mobile" placeholder="Поиск песни или ссылки..."
+                                   class="bg-transparent text-xs w-full text-slate-200 placeholder-slate-500 focus:outline-none">
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                            <div class="lg:col-span-7 flex flex-col gap-4">
+                                <div class="acrylic-card rounded-2xl p-4 border border-white/10 flex flex-col gap-4 relative overflow-hidden shadow-xl">
+
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2.5">
+                                            <span id="platform-badge" class="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider theme-accent-bg text-white shadow-md">YouTube</span>
+                                            <span id="current-track-title-top" class="text-xs text-slate-300 font-medium truncate max-w-[240px]">Выберите трек для воспроизведения</span>
+                                        </div>
+                                        <div id="visualizer" class="flex items-end gap-1 h-5 opacity-40 transition-opacity">
+                                            <div class="eq-bar w-1 theme-accent-bg rounded-full"></div>
+                                            <div class="eq-bar w-1 theme-accent-bg rounded-full"></div>
+                                            <div class="eq-bar w-1 theme-accent-bg rounded-full"></div>
+                                            <div class="eq-bar w-1 theme-accent-bg rounded-full"></div>
+                                        </div>
+                                    </div>
+
+                                    <div id="media-frame-box" class="w-full aspect-video rounded-xl bg-black/60 border border-white/10 overflow-hidden relative flex items-center justify-center">
+                                        <div id="embed-placeholder" class="flex flex-col items-center gap-3 text-center p-6">
+                                            <div class="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-300">
+                                                <i class="fa-solid fa-music text-2xl theme-accent-text"></i>
+                                            </div>
+                                            <div>
+                                                <h4 class="text-sm font-bold text-slate-200">Плеер готов к работе</h4>
+                                                <p class="text-xs text-slate-400 mt-1">Введите ссылку или название трека в строке поиска выше</p>
+                                            </div>
+                                        </div>
+                                        <div id="embed-container" class="w-full h-full hidden"></div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between gap-4 pt-1">
+                                        <div class="flex items-center gap-2 sm:gap-3">
+                                            <button onclick="prevTrack()" class="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 flex items-center justify-center transition">
+                                                <i class="fa-solid fa-backward-step text-xs"></i>
+                                            </button>
+                                            <button onclick="togglePlayPause()" id="btn-play" class="w-11 h-11 rounded-xl theme-accent-bg text-white flex items-center justify-center theme-accent-glow transition">
+                                                <i id="play-icon" class="fa-solid fa-play text-sm ml-0.5"></i>
+                                            </button>
+                                            <button onclick="nextTrack()" class="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 flex items-center justify-center transition">
+                                                <i class="fa-solid fa-forward-step text-xs"></i>
+                                            </button>
+                                        </div>
+
+                                        <div class="flex-1 text-center hidden sm:block">
+                                            <h3 id="now-playing-title" class="text-xs font-bold text-slate-200 truncate">Muzik Player Vibe</h3>
+                                            <p id="now-playing-artist" class="text-[11px] text-slate-400 truncate">allingan &amp; Gemini Studio</p>
+                                        </div>
+
+                                        <div class="flex items-center gap-2">
+                                            <i class="fa-solid fa-volume-high text-slate-400 text-xs"></i>
+                                            <input type="range" id="volume-slider" min="0" max="100" value="80" oninput="setVolume(this.value)"
+                                                   class="w-16 sm:w-24 accent-blue-500 bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="lg:col-span-5 flex flex-col gap-4">
+
+                                <div class="acrylic-card rounded-2xl p-4 border border-white/10 flex flex-col gap-3">
+                                    <h3 class="text-xs font-bold text-slate-300 flex items-center gap-2">
+                                        <i class="fa-solid fa-plus-circle theme-accent-text"></i>
+                                        Быстрое добавление
+                                    </h3>
+                                    <form id="add-track-form" class="flex gap-2">
+                                        <input type="text" id="track-input-url" placeholder="Вставь ссылку или имя песни..."
+                                               class="flex-1 bg-slate-900/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500">
+                                        <button type="submit" class="theme-accent-bg text-white text-xs font-bold px-4 py-2 rounded-xl hover:opacity-90 transition">Добавить</button>
+                                    </form>
+                                </div>
+
+                                <div class="acrylic-card rounded-2xl p-4 border border-white/10 flex-1 flex flex-col gap-3 min-h-[300px]">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-xs font-bold text-slate-300 flex items-center gap-2">
+                                            <i class="fa-solid fa-list theme-accent-text"></i>
+                                            Плейлист сессии
+                                        </h3>
+                                        <span id="playlist-count" class="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/5">0 треков</span>
+                                    </div>
+                                    <div id="main-playlist-items" class="flex-1 overflow-y-auto pr-1 flex flex-col gap-2 max-h-[320px]"></div>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </section>
+
+                    <section id="view-playlist" class="view-panel hidden flex-col gap-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-100">Управление плейлистом</h2>
+                                <p class="text-xs text-slate-400">Коллекция сохраненных треков</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="loadDemoTracks()" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-300 font-medium transition">
+                                    <i class="fa-solid fa-wand-magic-sparkles mr-1 theme-accent-text"></i> Загрузить демо
+                                </button>
+                                <button onclick="clearPlaylist()" class="px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-xs text-red-400 font-medium transition">
+                                    <i class="fa-regular fa-trash-can mr-1"></i> Очистить
+                                </button>
+                            </div>
+                        </div>
+                        <div id="full-playlist-container" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                    </section>
+
+                    <section id="view-settings" class="view-panel hidden flex-col gap-6 max-w-3xl">
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-100">Панель управления &amp; Кастомизация</h2>
+                            <p class="text-xs text-slate-400">Настройте внешний вид и визуальные эффекты Музыкального Плеера</p>
+                        </div>
+
+                        <div class="acrylic-card rounded-2xl p-5 border border-white/10 flex flex-col gap-4">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Выбор интерфейса</h3>
+                            <p class="text-[11px] text-slate-400 -mt-2">Какой стиль оформления использовать для плеера</p>
+                            <div class="flex flex-wrap gap-3">
+                                <button onclick="switchUi('fluent')" data-ui-choice="fluent" class="ui-choice active px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2">
+                                    <i class="fa-solid fa-layer-group"></i> Fluent Glass (Windows 11)
+                                </button>
+                                <button onclick="switchUi('liquid')" data-ui-choice="liquid" class="ui-choice px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2">
+                                    <i class="fa-solid fa-droplet"></i> Liquid Glass
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="acrylic-card rounded-2xl p-5 border border-white/10 flex flex-col gap-5">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Персонализация цвета</h3>
+                            <div class="flex flex-wrap items-center gap-3">
+                                <button onclick="setThemeAccent('#3b82f6', 'rgba(59, 130, 246, 0.4)')" class="w-10 h-10 rounded-xl bg-blue-500 border-2 border-white/20 hover:scale-105 transition flex items-center justify-center text-white"><i class="fa-solid fa-check text-xs"></i></button>
+                                <button onclick="setThemeAccent('#8b5cf6', 'rgba(139, 92, 246, 0.4)')" class="w-10 h-10 rounded-xl bg-purple-500 border-2 border-white/20 hover:scale-105 transition"></button>
+                                <button onclick="setThemeAccent('#ec4899', 'rgba(236, 72, 153, 0.4)')" class="w-10 h-10 rounded-xl bg-pink-500 border-2 border-white/20 hover:scale-105 transition"></button>
+                                <button onclick="setThemeAccent('#10b981', 'rgba(16, 185, 129, 0.4)')" class="w-10 h-10 rounded-xl bg-emerald-500 border-2 border-white/20 hover:scale-105 transition"></button>
+                                <button onclick="setThemeAccent('#f97316', 'rgba(249, 115, 22, 0.4)')" class="w-10 h-10 rounded-xl bg-orange-500 border-2 border-white/20 hover:scale-105 transition"></button>
+                                <button onclick="setThemeAccent('#06b6d4', 'rgba(6, 182, 212, 0.4)')" class="w-10 h-10 rounded-xl bg-cyan-500 border-2 border-white/20 hover:scale-105 transition"></button>
+                            </div>
+                        </div>
+
+                        <div class="acrylic-card rounded-2xl p-5 border border-white/10 flex flex-col gap-4">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Параметры интерфейса</h3>
+
+                            <div class="flex items-center justify-between py-2 border-b border-white/5">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-200">Режим префикса &amp; Fluent Glass</p>
+                                    <p class="text-[11px] text-slate-400">Включить размытие заднего плана (Acrylic)</p>
+                                </div>
+                                <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                            </div>
+
+                            <div class="flex items-center justify-between py-2 border-b border-white/5">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-200">Тёмный режим (Dark Theme)</p>
+                                    <p class="text-[11px] text-slate-400">Глубокая ночная палитра интерфейса</p>
+                                </div>
+                                <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                            </div>
+
+                            <div class="flex items-center justify-between py-2 border-b border-white/5">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-200">Анимация эквалайзера</p>
+                                    <p class="text-[11px] text-slate-400">Показывать визуализатор при воспроизведении</p>
+                                </div>
+                                <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+                            </div>
+
+                            <div class="flex items-center justify-between py-2">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-200">Окно поверх других окон</p>
+                                    <p class="text-[11px] text-slate-400">Закрепить плеер на рабочем столе</p>
+                                </div>
+                                <div class="toggle-switch" onclick="toggleSwitch(this)"></div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="view-developers" class="view-panel hidden flex-col gap-6">
+                        <div>
+                            <div class="flex items-center gap-3">
+                                <h2 class="text-xl font-extrabold text-slate-100">Команда Разработчиков</h2>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold theme-accent-bg text-white">Official Creators</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-1">Проект создан совместными усилиями allingan и Gemini AI</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="acrylic-card rounded-2xl p-5 border border-white/10 flex items-start gap-4 relative overflow-hidden group">
+                                <div class="w-14 h-14 rounded-2xl theme-accent-bg flex items-center justify-center text-white text-2xl font-black shadow-lg shrink-0">A</div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-base font-bold text-slate-100">allingan</h3>
+                                        <span class="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">Lead Dev</span>
+                                    </div>
+                                    <p class="text-xs theme-accent-text font-medium mt-0.5">Идея, Архитектура &amp; Дизайн</p>
+                                    <p class="text-xs text-slate-400 mt-2">Автор концепта универсального плеера и UI-дизайна в стиле Windows Fluent Glass.</p>
+                                    <div class="flex items-center gap-2 mt-4 text-xs text-slate-400">
+                                        <span class="px-2 py-1 rounded-lg bg-white/5 border border-white/5"><i class="fa-solid fa-code text-blue-400 mr-1"></i> Fullstack</span>
+                                        <span class="px-2 py-1 rounded-lg bg-white/5 border border-white/5"><i class="fa-solid fa-palette text-purple-400 mr-1"></i> UI/UX</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="acrylic-card rounded-2xl p-5 border border-white/10 flex items-start gap-4 relative overflow-hidden group">
+                                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-500 flex items-center justify-center text-white text-2xl font-black shadow-lg shrink-0">
+                                    <i class="fa-solid fa-star"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-base font-bold text-slate-100">Gemini</h3>
+                                        <span class="text-[10px] px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono">AI Partner</span>
+                                    </div>
+                                    <p class="text-xs text-purple-400 font-medium mt-0.5">Кодогенерация &amp; Оптимизация</p>
+                                    <p class="text-xs text-slate-400 mt-2">Мощная нейросетевая модель от Google, отвечающая за верстку, логику и парсинг треков.</p>
+                                    <div class="flex items-center gap-2 mt-4 text-xs text-slate-400">
+                                        <span class="px-2 py-1 rounded-lg bg-white/5 border border-white/5"><i class="fa-solid fa-brain text-emerald-400 mr-1"></i> AI Core</span>
+                                        <span class="px-2 py-1 rounded-lg bg-white/5 border border-white/5"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Real-time Fix</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="acrylic-card rounded-2xl p-5 border border-white/10 flex flex-col gap-3">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">О проекте Muzik Player</h4>
+                            <p class="text-xs text-slate-400 leading-relaxed">
+                                Muzik Player — это стильное клиентское веб-приложение с интегрированным встроенным проигрывателем для YouTube и SoundCloud. Платформа поддерживает автоматический поиск по названиям, управление локальным плейлистом и гибкую систему кастомизации оформления.
+                            </p>
+                        </div>
+                    </section>
+
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI 2: LIQUID GLASS -->
+    <div id="ui-liquid" class="ui-root">
+
+        <div class="liquid-bg" id="liquidBg"></div>
+
+        <div class="app-container" id="appContainer">
+            <div class="sidebar">
+                <button class="nav-icon active" onclick="liquidSwitchTab('player', this)" title="Плеер">
+                    <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                </button>
+                <button class="nav-icon" onclick="liquidSwitchTab('devs', this)" title="Разработчики">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+                </button>
+                <button class="nav-icon sidebar-bottom" onclick="liquidSwitchTab('settings', this)" title="Настройки">
+                    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                </button>
+            </div>
+
+            <div class="main-content">
+                <div id="tab-player" class="tab-pane active">
+                    <div class="header-title">Muzik player</div>
+                    <div class="glass-card">
+                        <div class="search-box">
+                            <input type="text" id="searchInput" placeholder="Введите название трека или вставьте ссылку...">
+                            <select id="searchEngine">
+                                <option value="auto">Авто-поиск</option>
+                                <option value="youtube">YouTube</option>
+                                <option value="soundcloud">SoundCloud</option>
+                            </select>
+                            <button class="btn" onclick="liquidSearch()">Искать</button>
+                        </div>
+                    </div>
+
+                    <div class="glass-card" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                        <svg style="width: 70px; height: 70px; fill: var(--accent); opacity: 0.85; margin-bottom: 15px;" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                        <h3 id="currentTitle" style="font-size: 20px;">Ничего не играет</h3>
+                        <p id="currentSub" style="color: var(--text-muted); font-size: 14px; margin-top: 6px;">Введите название в строке поиска выше</p>
+                    </div>
+                </div>
+
+                <div id="tab-devs" class="tab-pane">
+                    <div class="header-title">Разработчики</div>
+                    <div class="dev-grid">
+                        <div class="dev-card">
+                            <div class="dev-avatar-allingan">
+                                <svg viewBox="0 0 100 80" style="width: 55px; height: 55px;">
+                                    <path d="M50 5 L85 75 H65 L50 40 L35 75 H15 Z" fill="#1e293b"/>
+                                    <path d="M35 55 H65 V65 H35 Z" fill="#1e293b"/>
+                                </svg>
+                                <span style="font-size: 7px; color: #334155; font-weight: 700; margin-top: 4px; letter-spacing: 0.3px;">allinganusss's Studio</span>
+                            </div>
+                            <h3 style="margin-top: 5px;">allingan</h3>
+                            <p style="font-size: 13px; color: var(--text-muted);">allinganusss's Studio</p>
+                        </div>
+
+                        <div class="dev-card">
+                            <div class="dev-avatar-gemini">
+                                <svg viewBox="0 0 24 24" style="width: 45px; height: 45px; fill: var(--accent);"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 10a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/></svg>
+                            </div>
+                            <h3 style="margin-top: 5px;">Gemini</h3>
+                            <p style="font-size: 13px; color: var(--text-muted);">AI Engine &amp; UI Architect</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-settings" class="tab-pane">
+                    <div class="header-title">Настройки приложения</div>
+
+                    <div class="glass-card">
+                        <p style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">Выбор интерфейса</p>
+                        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Какой стиль оформления использовать для плеера</p>
+                        <div class="ui-switch-row">
+                            <button class="ui-choice" data-ui-choice="fluent" onclick="switchUi('fluent')">Fluent Glass (Windows 11)</button>
+                            <button class="ui-choice active" data-ui-choice="liquid" onclick="switchUi('liquid')">Liquid Glass</button>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <p style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">Цветовая тема</p>
+                        <div class="color-pickers">
+                            <div class="color-dot active" style="background: #3b82f6;" onclick="setTheme('#3b82f6', 'rgba(59, 130, 246, 0.5)', 'radial-gradient(circle at 20% 30%, #1e1b4b, #0f172a 70%)', this)"></div>
+                            <div class="color-dot" style="background: #8b5cf6;" onclick="setTheme('#8b5cf6', 'rgba(139, 92, 246, 0.5)', 'radial-gradient(circle at 20% 30%, #2e1065, #0f172a 70%)', this)"></div>
+                            <div class="color-dot" style="background: #10b981;" onclick="setTheme('#10b981', 'rgba(16, 185, 129, 0.5)', 'radial-gradient(circle at 20% 30%, #022c22, #0f172a 70%)', this)"></div>
+                            <div class="color-dot" style="background: #f43f5e;" onclick="setTheme('#f43f5e', 'rgba(244, 63, 94, 0.5)', 'radial-gradient(circle at 20% 30%, #4c0519, #0f172a 70%)', this)"></div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <p style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">Кастомизация UI и Эффекты</p>
+
+                        <div class="setting-item">
+                            <span>Эффект Liquid Glass (Размытие стекла)</span>
+                            <label class="switch">
+                                <input type="checkbox" checked id="toggleGlass" onchange="toggleGlassEffect(this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-item">
+                            <span>Анимация фоновых бликов</span>
+                            <label class="switch">
+                                <input type="checkbox" checked id="toggleGlow" onchange="toggleBackgroundGlow(this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-item" style="border: none; flex-direction: column; align-items: flex-start; gap: 8px;">
+                            <span>Сила размытия (Glass Blur Radius)</span>
+                            <input type="range" min="5" max="50" value="25" style="width: 100%; accent-color: var(--accent);" oninput="changeBlurRadius(this.value)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="player-panel">
+                <div style="font-weight: 600; font-size: 14px; width: 100%;">Плеер</div>
+                <div class="player-screen" id="playerScreen">
+                    <span style="color: var(--text-muted); font-size: 13px;">Ожидание трека</span>
+                </div>
+
+                <div class="track-info">
+                    <div class="track-title" id="sideTitle">Трек не выбран</div>
+                    <div class="track-artist" id="sideArtist">Stream Engine</div>
+                </div>
+
+                <div class="controls">
+                    <button class="ctrl-btn" onclick="toggleLoop()" id="loopBtn" title="Повтор">
+                        <svg style="width: 20px; height: 20px; fill: currentColor;" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.3 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                    </button>
+                    <button class="ctrl-btn main" onclick="mainPlayAction()" title="Play / Pause">
+                        <svg id="playIcon" style="width: 24px; height: 24px; fill: #fff;" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    </button>
+                    <button class="ctrl-btn" onclick="nextTrack()" title="Следующий">
+                        <svg style="width: 20px; height: 20px; fill: currentColor;" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                    </button>
+                </div>
+
+                <div class="queue-label">Очередь</div>
+                <div class="queue-box" id="liquidQueue"></div>
+
+                <div class="volume-container">
+                    <span>🔊</span>
+                    <input type="range" min="0" max="100" value="80" id="volumeSlider" oninput="setVolume(this.value)">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 right-6 acrylic-card border border-white/10 px-4 py-3 rounded-xl text-xs font-semibold text-slate-200 transform translate-y-24 opacity-0 transition-all duration-300 z-50 flex items-center gap-3 shadow-2xl">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+        <span id="toast-msg">Уведомление</span>
+    </div>
+
+    <script>
+        // ===================== Shared State =====================
+        const demoTracks = () => [
+            {
+                id: '1',
+                title: 'Lofi Hip Hop Radio - Beats to Relax/Study to',
+                artist: 'Lofi Girl',
+                platform: 'youtube',
+                embedUrl: `https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+            },
+            {
+                id: '2',
+                title: 'Chill Synthwave Track',
+                artist: 'SoundCloud Vibe',
+                platform: 'soundcloud',
+                embedUrl: 'https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/293923233&color=%233b82f6&auto_play=true'
+            }
+        ];
+
+        let playlist = demoTracks();
+        let currentIndex = -1;
+        let isPlaying = false;
+        let isLooping = false;
+        let currentUi = 'fluent';
+        try { currentUi = localStorage.getItem('muzik-ui') || 'fluent'; } catch (e) {}
+
+        const $ = (id) => document.getElementById(id);
+
+        function escapeHtml(str) {
+            return String(str == null ? '' : str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        // ===================== UI Switcher =====================
+        function switchUi(ui) {
+            currentUi = ui;
+            try { localStorage.setItem('muzik-ui', ui); } catch (e) {}
+            applyUi();
+            showToast(ui === 'fluent' ? 'Интерфейс: Fluent Glass' : 'Интерфейс: Liquid Glass');
+        }
+
+        function applyUi() {
+            $('ui-fluent').classList.toggle('ui-active', currentUi === 'fluent');
+            $('ui-liquid').classList.toggle('ui-active', currentUi === 'liquid');
+            document.querySelectorAll('[data-ui-choice]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.uiChoice === currentUi);
+            });
+            mountEmbed();
+            updatePlayControls();
+        }
+
+        // ===================== Toast =====================
+        let toastTimer = null;
+        function showToast(msg) {
+            const toast = $('toast');
+            $('toast-msg').textContent = msg;
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add('translate-y-24', 'opacity-0');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 2500);
+        }
+
+        // ===================== Search (shared) =====================
+        function handleSearch(query, engine = 'auto') {
+            query = (query || '').trim();
+            if (!query) return;
+
+            const isYtUrl = query.includes('youtube.com') || query.includes('youtu.be');
+            const isScUrl = query.includes('soundcloud.com');
+            let track;
+
+            if (engine === 'soundcloud' || (engine === 'auto' && isScUrl)) {
+                const scUrl = isScUrl ? query : 'https://soundcloud.com/search?q=' + encodeURIComponent(query);
+                track = {
+                    id: Date.now().toString(),
+                    title: isScUrl ? 'SoundCloud Аудио' : query,
+                    artist: 'SoundCloud',
+                    platform: 'soundcloud',
+                    embedUrl: `https://w.soundcloud.com/player/?url=${encodeURIComponent(scUrl)}&color=%233b82f6&auto_play=true`
+                };
+            } else if ((engine === 'youtube' || engine === 'auto') && isYtUrl) {
+                let videoId = query.includes('v=')
+                    ? query.split('v=')[1].split('&')[0]
+                    : query.split('youtu.be/')[1].split('?')[0];
+                track = {
+                    id: Date.now().toString(),
+                    title: `YouTube Трек (${videoId})`,
+                    artist: 'YouTube Video',
+                    platform: 'youtube',
+                    embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+                };
+            } else {
+                track = {
+                    id: Date.now().toString(),
+                    title: query,
+                    artist: engine === 'youtube' ? 'YouTube Поиск' : 'Поисковый запрос',
+                    platform: 'youtube',
+                    embedUrl: `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(query)}&autoplay=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+                };
+            }
+
+            playlist.push(track);
+            renderPlaylist();
+            playTrack(playlist.length - 1);
+            showToast('Трек добавлен и запущен');
+        }
+
+        function liquidSearch() {
+            const input = $('searchInput');
+            const engine = $('searchEngine').value;
+            handleSearch(input.value, engine);
+            input.value = '';
+        }
+
+        // ===================== Playback (shared) =====================
+        function playTrack(index) {
+            if (index < 0 || index >= playlist.length) return;
+            currentIndex = index;
+            const track = playlist[currentIndex];
+
+            $('now-playing-title').textContent = track.title;
+            $('now-playing-artist').textContent = track.artist;
+            $('current-track-title-top').textContent = track.title;
+            $('platform-badge').textContent = track.platform.toUpperCase();
+
+            $('sideTitle').textContent = track.title;
+            $('sideArtist').textContent = track.artist;
+            $('currentTitle').textContent = track.title;
+            $('currentSub').textContent = 'Играет прямо сейчас';
+
+            isPlaying = true;
+            updatePlayControls();
+            renderPlaylist();
+            mountEmbed();
+        }
+
+        function mountEmbed() {
+            const hasTrack = currentIndex >= 0 && currentIndex < playlist.length;
+            const iframeHtml = hasTrack
+                ? `<iframe src="${escapeHtml(playlist[currentIndex].embedUrl)}" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen class="w-full h-full rounded-xl"></iframe>`
+                : '';
+            const liquidPlaceholder = '<span style="color: var(--text-muted); font-size: 13px;">Ожидание трека</span>';
+
+            const fluentBox = $('embed-container');
+            const fluentPlaceholder = $('embed-placeholder');
+            const liquidScreen = $('playerScreen');
+
+            if (currentUi === 'fluent') {
+                fluentBox.innerHTML = iframeHtml;
+                fluentBox.classList.toggle('hidden', !hasTrack);
+                fluentPlaceholder.classList.toggle('hidden', hasTrack);
+                liquidScreen.innerHTML = liquidPlaceholder;
+            } else {
+                liquidScreen.innerHTML = hasTrack ? iframeHtml : liquidPlaceholder;
+                fluentBox.innerHTML = '';
+                fluentBox.classList.add('hidden');
+                fluentPlaceholder.classList.remove('hidden');
+            }
+        }
+
+        function togglePlayPause() {
+            if (currentIndex === -1) {
+                if (playlist.length > 0) playTrack(0);
+                else showToast('Сначала добавьте трек');
+                return;
+            }
+            isPlaying = !isPlaying;
+            updatePlayControls();
+        }
+
+        function mainPlayAction() {
+            if (currentIndex === -1) {
+                const q = $('searchInput').value.trim();
+                if (q) { liquidSearch(); return; }
+                if (playlist.length > 0) { playTrack(0); return; }
+                showToast('Введите название трека или ссылку');
+                return;
+            }
+            isPlaying = !isPlaying;
+            updatePlayControls();
+        }
+
+        function updatePlayControls() {
+            const playIcon = $('play-icon');
+            const visualizer = $('visualizer');
+            if (isPlaying && currentIndex !== -1) {
+                playIcon.className = 'fa-solid fa-pause text-sm';
+                visualizer.classList.remove('opacity-40');
+                visualizer.classList.add('opacity-100');
+                $('playIcon').innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+            } else {
+                playIcon.className = 'fa-solid fa-play text-sm ml-0.5';
+                visualizer.classList.remove('opacity-100');
+                visualizer.classList.add('opacity-40');
+                $('playIcon').innerHTML = '<path d="M8 5v14l11-7z"/>';
+            }
+        }
+
+        function nextTrack() {
+            if (playlist.length === 0) return;
+            playTrack((currentIndex + 1) % playlist.length);
+        }
+
+        function prevTrack() {
+            if (playlist.length === 0) return;
+            playTrack((currentIndex - 1 + playlist.length) % playlist.length);
+        }
+
+        function toggleLoop() {
+            isLooping = !isLooping;
+            $('loopBtn').style.color = isLooping ? 'var(--accent)' : 'currentColor';
+            showToast(isLooping ? 'Повтор включен' : 'Повтор выключен');
+        }
+
+        function setVolume(value) {
+            $('volume-slider').value = value;
+            $('volumeSlider').value = value;
+        }
+
+        // ===================== Playlist (shared) =====================
+        function renderPlaylist() {
+            $('playlist-count').textContent = `${playlist.length} треков`;
+            const mainPlaylistItems = $('main-playlist-items');
+            const fullPlaylistContainer = $('full-playlist-container');
+            mainPlaylistItems.innerHTML = '';
+            fullPlaylistContainer.innerHTML = '';
+
+            playlist.forEach((track, index) => {
+                const isActive = index === currentIndex;
+
+                const card = document.createElement('div');
+                card.className = `p-2.5 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition ${
+                    isActive ? 'bg-white/10 border-blue-500/60' : 'bg-black/20 border-white/5 hover:bg-white/5'
+                }`;
+                card.onclick = () => playTrack(index);
+                card.innerHTML = `
+                    <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div class="w-8 h-8 rounded-lg ${track.platform === 'youtube' ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'} flex items-center justify-center text-xs font-bold shrink-0">
+                            <i class="${track.platform === 'youtube' ? 'fa-brands fa-youtube' : 'fa-brands fa-soundcloud'}"></i>
+                        </div>
+                        <div class="truncate">
+                            <h4 class="text-xs font-semibold ${isActive ? 'theme-accent-text' : 'text-slate-200'} truncate">${escapeHtml(track.title)}</h4>
+                            <p class="text-[10px] text-slate-400 truncate">${escapeHtml(track.artist)}</p>
+                        </div>
+                    </div>
+                    <button onclick="removeTrack(event, ${index})" class="text-slate-500 hover:text-red-400 p-1 text-xs transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                `;
+                mainPlaylistItems.appendChild(card);
+
+                const fullCard = document.createElement('div');
+                fullCard.className = 'acrylic-card p-4 rounded-xl border border-white/10 flex items-center justify-between gap-3';
+                fullCard.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-slate-300 theme-accent-text shrink-0">
+                            <i class="fa-solid fa-music"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <h4 class="text-xs font-bold text-slate-200 truncate">${escapeHtml(track.title)}</h4>
+                            <p class="text-[11px] text-slate-400 truncate">${escapeHtml(track.artist)} (${escapeHtml(track.platform)})</p>
+                        </div>
+                    </div>
+                    <button onclick="playTrack(${index}); fluentSwitchTab('main');" class="theme-accent-bg text-white text-xs px-3 py-1.5 rounded-lg hover:opacity-90 shrink-0">
+                        Слушать
+                    </button>
+                `;
+                fullPlaylistContainer.appendChild(fullCard);
+            });
+
+            renderLiquidQueue();
+        }
+
+        function renderLiquidQueue() {
+            const queue = $('liquidQueue');
+            queue.innerHTML = '';
+            if (playlist.length === 0) {
+                queue.innerHTML = '<div class="queue-empty">Очередь пуста</div>';
+                return;
+            }
+            playlist.forEach((track, index) => {
+                const item = document.createElement('div');
+                item.className = 'queue-item' + (index === currentIndex ? ' active' : '');
+                item.onclick = () => playTrack(index);
+                item.innerHTML = `
+                    <span class="queue-dot ${escapeHtml(track.platform)}"></span>
+                    <div class="queue-text">
+                        <div class="queue-title">${escapeHtml(track.title)}</div>
+                        <div class="queue-artist">${escapeHtml(track.artist)}</div>
+                    </div>
+                `;
+                queue.appendChild(item);
+            });
+        }
+
+        function resetTrackInfo() {
+            $('now-playing-title').textContent = 'Muzik Player Vibe';
+            $('now-playing-artist').textContent = 'allingan & Gemini Studio';
+            $('current-track-title-top').textContent = 'Выберите трек для воспроизведения';
+            $('platform-badge').textContent = 'YOUTUBE';
+            $('sideTitle').textContent = 'Трек не выбран';
+            $('sideArtist').textContent = 'Stream Engine';
+            $('currentTitle').textContent = 'Ничего не играет';
+            $('currentSub').textContent = 'Введите название в строке поиска выше';
+        }
+
+        function removeTrack(e, index) {
+            e.stopPropagation();
+            playlist.splice(index, 1);
+            if (currentIndex === index) {
+                currentIndex = -1;
+                isPlaying = false;
+                resetTrackInfo();
+                updatePlayControls();
+            } else if (currentIndex > index) {
+                currentIndex--;
+            }
+            mountEmbed();
+            renderPlaylist();
+        }
+
+        function clearPlaylist() {
+            playlist = [];
+            currentIndex = -1;
+            isPlaying = false;
+            resetTrackInfo();
+            updatePlayControls();
+            mountEmbed();
+            renderPlaylist();
+            showToast('Плейлист очищен');
+        }
+
+        function loadDemoTracks() {
+            playlist = demoTracks();
+            currentIndex = -1;
+            isPlaying = false;
+            updatePlayControls();
+            mountEmbed();
+            renderPlaylist();
+            showToast('Демо треки загружены');
+        }
+
+        // ===================== Fluent UI =====================
+        function fluentSwitchTab(tabId) {
+            document.querySelectorAll('#ui-fluent .view-panel').forEach(panel => panel.classList.add('hidden'));
+            document.querySelectorAll('#ui-fluent .nav-item').forEach(btn => btn.classList.remove('active'));
+            $('view-' + tabId).classList.remove('hidden');
+            $('nav-' + tabId).classList.add('active');
+        }
+
+        function toggleSwitch(element) {
+            element.classList.toggle('active');
+            showToast('Настройка обновлена');
+        }
+
+        function setThemeAccent(color, glow) {
+            document.documentElement.style.setProperty('--accent-color', color);
+            document.documentElement.style.setProperty('--accent-glow', glow);
+            const liquid = $('ui-liquid');
+            liquid.style.setProperty('--accent', color);
+            liquid.style.setProperty('--accent-glow', glow);
+            showToast('Акцентный цвет изменен');
+        }
+
+        function setupFluentSearch() {
+            $('global-search-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleSearch(e.target.value);
+                    e.target.value = '';
+                }
+            });
+
+            $('global-search-input-mobile').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleSearch(e.target.value);
+                    e.target.value = '';
+                }
+            });
+
+            $('add-track-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = $('track-input-url');
+                handleSearch(input.value);
+                input.value = '';
+            });
+        }
+
+        // ===================== Liquid UI =====================
+        function liquidSwitchTab(tabId, element) {
+            document.querySelectorAll('#ui-liquid .tab-pane').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('#ui-liquid .sidebar .nav-icon').forEach(el => el.classList.remove('active'));
+            $('tab-' + tabId).classList.add('active');
+            element.classList.add('active');
+        }
+
+        function setTheme(color, glow, bg, el) {
+            const liquid = $('ui-liquid');
+            liquid.style.setProperty('--accent', color);
+            liquid.style.setProperty('--accent-glow', glow);
+            liquid.style.setProperty('--bg-gradient', bg);
+            document.documentElement.style.setProperty('--accent-color', color);
+            document.documentElement.style.setProperty('--accent-glow', glow);
+
+            document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+            if (el) el.classList.add('active');
+        }
+
+        function toggleGlassEffect(checked) {
+            const container = $('appContainer');
+            container.style.backdropFilter = checked ? 'blur(var(--glass-blur)) saturate(200%)' : 'none';
+        }
+
+        function toggleBackgroundGlow(checked) {
+            $('liquidBg').style.display = checked ? 'block' : 'none';
+        }
+
+        function changeBlurRadius(val) {
+            $('ui-liquid').style.setProperty('--glass-blur', val + 'px');
+        }
+
+        // ===================== Init =====================
+        renderPlaylist();
+        setupFluentSearch();
+        applyUi();
+    </script>
+</body>
+</html>
