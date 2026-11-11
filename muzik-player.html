@@ -1187,7 +1187,35 @@
         }
 
         // ===================== Search (shared) =====================
-        function handleSearch(query, engine = 'auto') {
+        const PIPED_APIS = [
+            'https://api.piped.private.coffee',
+            'https://pipedapi.reallyaweso.me',
+            'https://pipedapi.drgns.space'
+        ];
+
+        async function resolveYoutubeSearch(query) {
+            for (const base of PIPED_APIS) {
+                try {
+                    const ctrl = new AbortController();
+                    const timer = setTimeout(() => ctrl.abort(), 7000);
+                    const res = await fetch(`${base}/search?q=${encodeURIComponent(query)}&filter=videos`, { signal: ctrl.signal });
+                    clearTimeout(timer);
+                    if (!res.ok) continue;
+                    const data = await res.json();
+                    const item = (data.items || []).find(i => i.type === 'stream' && i.url && i.url.includes('v='));
+                    if (item) {
+                        return {
+                            videoId: item.url.split('v=')[1].split('&')[0],
+                            title: item.title || query,
+                            artist: item.uploaderName || 'YouTube'
+                        };
+                    }
+                } catch (e) { /* try next instance */ }
+            }
+            return null;
+        }
+
+        async function handleSearch(query, engine = 'auto') {
             query = (query || '').trim();
             if (!query) return;
 
@@ -1216,12 +1244,18 @@
                     embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`
                 };
             } else {
+                showToast('Ищу трек...');
+                const found = await resolveYoutubeSearch(query);
+                if (!found) {
+                    showToast('Не удалось найти трек. Вставь ссылку на YouTube или SoundCloud');
+                    return;
+                }
                 track = {
                     id: Date.now().toString(),
-                    title: query,
-                    artist: engine === 'youtube' ? 'YouTube Поиск' : 'Поисковый запрос',
+                    title: found.title,
+                    artist: found.artist,
                     platform: 'youtube',
-                    embedUrl: `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query)}&autoplay=1`
+                    embedUrl: `https://www.youtube-nocookie.com/embed/${found.videoId}?autoplay=1`
                 };
             }
 
