@@ -488,28 +488,28 @@ function renderResults(items, status) {
 }
 
 // ---------- playlist ----------
-// Встроенная подборка: 20 треков (10 RU + 10 EN), разрешаются через поиск SoundCloud при первом запуске
+// Встроенная подборка: 20 треков с конкретными ссылками на SoundCloud
 const BUILTIN_TRACKS = [
-  { title: '1000-7', artist: 'Sadfriendd', query: '1000-7 sadfriendd' },
-  { title: 'Type London', artist: 'phonk', query: 'type london' },
-  { title: 'Назад в кресты', artist: 'RU', query: 'назад в кресты' },
-  { title: 'Седая ночь', artist: 'RU', query: 'седая ночь' },
-  { title: 'Белые розы', artist: 'Юрий Шатунов', query: 'белые розы шатунов' },
-  { title: 'Кто пчёлок уважает', artist: 'RU', query: 'кто пчёлок уважает' },
-  { title: 'Девочка с каре', artist: 'Мукка', query: 'мукка девочка с каре' },
-  { title: 'Спутник', artist: 'Буерак', query: 'буерак спутник' },
-  { title: 'Судно (Boris Ryzhy)', artist: 'Молчат Дома', query: 'молчат дома судно' },
-  { title: 'Бром', artist: 'Сироткин', query: 'сироткин бром' },
-  { title: 'Blinding Lights', artist: 'The Weeknd', query: 'blinding lights the weeknd' },
-  { title: 'One More Time', artist: 'Daft Punk', query: 'daft punk one more time' },
-  { title: 'Feel Good Inc.', artist: 'Gorillaz', query: 'gorillaz feel good inc' },
-  { title: 'Billie Jean', artist: 'Michael Jackson', query: 'michael jackson billie jean' },
-  { title: 'Africa', artist: 'Toto', query: 'toto africa' },
-  { title: 'Sweater Weather', artist: 'The Neighbourhood', query: 'the neighbourhood sweater weather' },
-  { title: 'Never Gonna Give You Up', artist: 'Rick Astley', query: 'rick astley never gonna give you up' },
-  { title: 'Bohemian Rhapsody', artist: 'Queen', query: 'queen bohemian rhapsody' },
-  { title: 'Still D.R.E.', artist: 'Dr. Dre ft. Snoop Dogg', query: 'dr dre still dre' },
-  { title: 'In the End', artist: 'Linkin Park', query: 'linkin park in the end' }
+  { title: '1000-7', artist: 'fem.love', url: 'https://soundcloud.com/femlove/1000-7' },
+  { title: 'type london', artist: 'ONDA ANDAR', url: 'https://soundcloud.com/onda_andar/type-london' },
+  { title: 'Назад в кресты', artist: 'dabbackwood', url: 'https://soundcloud.com/dabbackwood-sc/nazad-v-kresty' },
+  { title: 'Седая ночь', artist: 'Шаман', url: 'https://soundcloud.com/snd4u/shaman-sedaya-noch-grey-night' },
+  { title: 'Белые розы', artist: 'Юрий Шатунов', url: 'https://soundcloud.com/yurii-shatunov/belye-rozy' },
+  { title: 'Кто пчёлок уважает', artist: 'Сыновья России', url: 'https://soundcloud.com/olga-ratushnaya/kto-pchyolok-uvazhaet' },
+  { title: 'Девочка с каре', artist: 'МУККА', url: 'https://soundcloud.com/mukkaaa/mukka-devochka-s-kare' },
+  { title: 'Судно (Борис Рыжий)', artist: 'Молчат Дома', url: 'https://soundcloud.com/molchatdoma/ucypjtb8gi6k' },
+  { title: 'Дома молчат', artist: 'Молчат Дома', url: 'https://soundcloud.com/molchatdoma/ixo0r8wqjwiq' },
+  { title: 'Седая ночь', artist: 'Юрий Шатунов', url: 'https://soundcloud.com/yurii-shatunov/sedaya-noch' },
+  { title: 'Blinding Lights', artist: 'The Weeknd', url: 'https://soundcloud.com/theweeknd/blinding-lights' },
+  { title: 'One More Time', artist: 'Daft Punk', url: 'https://soundcloud.com/daft-punk-id/daft-punk-one-more-time' },
+  { title: 'Feel Good Inc.', artist: 'Gorillaz', url: 'https://soundcloud.com/gorillaz/feel-good-inc-album-version' },
+  { title: 'Billie Jean', artist: 'Michael Jackson', url: 'https://soundcloud.com/michael-jackson-881677963/billie-jean-audio-oficial-1' },
+  { title: 'Africa', artist: 'Toto', url: 'https://soundcloud.com/toto-official/africa-7' },
+  { title: 'Sweater Weather', artist: 'The Neighbourhood', url: 'https://soundcloud.com/theneighbourhood/sweater-weather-1' },
+  { title: 'Never Gonna Give You Up', artist: 'Rick Astley', url: 'https://soundcloud.com/rick-astley-official/never-gonna-give-you-up' },
+  { title: 'Bohemian Rhapsody', artist: 'Queen', url: 'https://soundcloud.com/rizky-rilos/queen-bohemian-rhapsody' },
+  { title: 'Still D.R.E.', artist: 'Dr. Dre ft. Snoop Dogg', url: 'https://soundcloud.com/dr-dre-music/still-d-r-e' },
+  { title: 'In the End', artist: 'LINKIN PARK', url: 'https://soundcloud.com/linkinpark/in-the-end' }
 ];
 
 function loadBuiltins() {
@@ -518,8 +518,8 @@ function loadBuiltins() {
       id: 'b' + i,
       title: t.title,
       artist: t.artist,
-      platform: 'builtin',
-      query: t.query
+      platform: 'soundcloud',
+      url: t.url
     };
   });
   currentIndex = -1;
