@@ -24,9 +24,14 @@ body {
     var(--bg);
   color: var(--text);
   display: flex; flex-direction: column;
+  height: 100dvh;
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
 }
+/* Тапы: разрешаем жесты на всех интерактивных элементах */
+button, .item, .dot, input, select { touch-action: manipulation; }
+button { cursor: pointer; }
 
 /* ===== Topbar ===== */
 .topbar {
@@ -35,6 +40,7 @@ body {
   background: rgba(0,0,0,.25);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  z-index: 10;
 }
 .logo { width: 30px; height: 30px; border-radius: 9px; background: var(--accent);
   display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;
@@ -46,34 +52,35 @@ body {
 .searchwrap input {
   flex: 1; min-width: 0;
   background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 12px;
-  padding: 9px 14px; color: var(--text); font-size: 13px; outline: none;
+  padding: 9px 14px; color: var(--text); font-size: 16px; outline: none; /* 16px = iOS не зумит */
 }
 .searchwrap input:focus { border-color: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
 .searchwrap select {
   background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 12px;
-  padding: 9px 8px; color: var(--text); font-size: 12px; outline: none; cursor: pointer; flex-shrink: 0;
+  padding: 9px 8px; color: var(--text); font-size: 13px; outline: none; cursor: pointer; flex-shrink: 0;
 }
 .searchwrap select option { background: #0f172a; }
 .btn {
   background: var(--accent); border: none; border-radius: 12px; color: #fff;
-  padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  padding: 9px 16px; font-size: 13px; font-weight: 600; white-space: nowrap;
   box-shadow: 0 3px 15px var(--accent-glow);
+  -webkit-appearance: none; appearance: none;
 }
 .btn:active { transform: scale(.97); }
 .btn.ghost { background: rgba(255,255,255,.07); box-shadow: none; border: 1px solid var(--border); }
 
 /* ===== Layout ===== */
 .layout { flex: 1; display: flex; min-height: 0; }
-.stage { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 12px; gap: 12px; overflow-y: auto; }
+.stage { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 12px; gap: 12px; overflow-y: auto;
+  -webkit-overflow-scrolling: touch; }
 
 .playerbox {
   background: var(--card); border: 1px solid var(--border); border-radius: 18px;
   padding: 12px; display: flex; flex-direction: column; gap: 10px;
-  backdrop-filter: blur(14px);
 }
 .video { width: 100%; aspect-ratio: 16/9; border-radius: 14px; background: #000; border: 1px solid var(--border);
   overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative; }
-.video iframe, .video video, .video audio { width: 100%; height: 100%; border: none; display: block; }
+.video iframe, .video video { width: 100%; height: 100%; border: none; display: block; }
 .video .placeholder { color: var(--muted); font-size: 13px; text-align: center; padding: 14px; }
 .video .placeholder svg { width: 46px; height: 46px; fill: var(--accent); opacity: .8; margin-bottom: 8px; }
 
@@ -83,12 +90,13 @@ body {
 .nowartist { font-size: 12px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .controls { display: flex; align-items: center; gap: 8px; }
 .cbtn {
-  width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.08);
+  width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,.08);
   border: 1px solid var(--border); color: #fff; display: flex; align-items: center;
-  justify-content: center; cursor: pointer;
+  justify-content: center; flex-shrink: 0;
 }
-.cbtn svg { width: 17px; height: 17px; fill: currentColor; }
-.cbtn.main { width: 48px; height: 48px; background: var(--accent); box-shadow: 0 0 20px var(--accent-glow); border: none; }
+.cbtn svg { width: 17px; height: 17px; fill: currentColor; pointer-events: none; }
+.cbtn:active { transform: scale(.92); }
+.cbtn.main { width: 50px; height: 50px; background: var(--accent); box-shadow: 0 0 20px var(--accent-glow); border: none; }
 .cbtn.main svg { width: 22px; height: 22px; }
 .vol { display: flex; align-items: center; gap: 8px; width: 150px; }
 .vol input { flex: 1; accent-color: var(--accent); }
@@ -105,17 +113,17 @@ body {
 .side {
   width: 330px; flex-shrink: 0; border-left: 1px solid var(--border);
   background: rgba(10,16,35,.5); padding: 12px; display: flex; flex-direction: column; gap: 10px;
-  overflow-y: auto; backdrop-filter: blur(14px);
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
 }
 .side h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
 .list { display: flex; flex-direction: column; gap: 8px; }
 .item {
   background: rgba(0,0,0,.25); border: 1px solid var(--border); border-radius: 12px;
-  padding: 9px 11px; display: flex; align-items: center; gap: 10px; cursor: pointer;
+  padding: 9px 11px; display: flex; align-items: center; gap: 10px;
 }
-.item:hover { border-color: rgba(255,255,255,.25); background: rgba(30,45,80,.5); }
+.item:active { background: rgba(30,45,80,.6); }
 .item.active { border-color: var(--accent); background: rgba(59,130,246,.12); }
-.item .ic { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+.item .ic { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; overflow: hidden;
   display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
   background: rgba(255,255,255,.06); color: var(--accent); }
 .item .ic.yt { background: rgba(239,68,68,.15); color: #f87171; }
@@ -123,36 +131,46 @@ body {
 .item .meta { flex: 1; min-width: 0; }
 .item .t { font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item .a { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.item .x { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 4px; }
-.item .x:hover { color: #f87171; }
+.item .x { background: none; border: none; color: var(--muted); font-size: 16px; padding: 6px 8px; flex-shrink: 0; }
+.item .x:active { color: #f87171; }
 .empty { color: var(--muted); font-size: 12px; text-align: center; padding: 14px 6px; }
 .status { font-size: 11px; color: var(--muted); }
 
 /* ===== Settings modal ===== */
 .modalbg { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
-  align-items: center; justify-content: center; z-index: 50; padding: 16px; }
-.modalbg.open { display: flex; }
+  align-items: center; justify-content: center; z-index: 50; padding: 16px; pointer-events: none; }
+.modalbg.open { display: flex; pointer-events: auto; }
 .modal { background: #0f172a; border: 1px solid var(--border); border-radius: 18px;
-  padding: 20px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 12px; }
+  padding: 20px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 12px;
+  max-height: 90dvh; overflow-y: auto; }
 .modal h2 { font-size: 16px; }
 .modal p { font-size: 12px; color: var(--muted); line-height: 1.5; }
-.modal input { background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 10px;
-  padding: 10px 12px; color: var(--text); font-size: 13px; outline: none; }
+.modal input[type="text"], .modal input[type="search"] {
+  background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; color: var(--text); font-size: 16px; outline: none; width: 100%;
+}
 .modal .row { display: flex; gap: 8px; justify-content: flex-end; }
 .themedots { display: flex; gap: 10px; }
-.dot { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+.dot { width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; flex-shrink: 0; }
+.dot:active { transform: scale(1.15); }
 .dot.active { border-color: #fff; }
 
 /* ===== Responsive: phone portrait ===== */
 @media (max-width: 860px) {
   .layout { flex-direction: column; }
   .side { width: 100%; border-left: none; border-top: 1px solid var(--border);
-    max-height: 42%; }
+    max-height: 45%; }
   .brand, .badge { display: none; }
   .vol { display: none; }
   .vizcard canvas { height: 56px; }
+  .topbar { padding: 8px 10px; gap: 8px; }
+  .stage { padding: 10px; gap: 10px; }
+  .searchwrap .btn { padding: 9px 12px; }
 }
 /* ===== Responsive: phone landscape (short screens) ===== */
+@media (max-height: 500px) and (min-width: 861px) {
+  .side { width: 300px; }
+}
 @media (max-height: 500px) {
   .stage { flex-direction: row; }
   .playerbox { flex: 1.4; }
@@ -160,17 +178,12 @@ body {
   .video { aspect-ratio: auto; flex: 1; min-height: 0; }
   .vizcard canvas { height: 46px; }
   .topbar { padding: 6px 10px; }
-  .topbar .btn { padding: 7px 12px; }
-  .cbtn { width: 34px; height: 34px; }
-  .cbtn.main { width: 40px; height: 40px; }
-  .side { max-height: none; }
-  @media (max-width: 860px) {
-    .stage { flex-direction: column; overflow-y: auto; }
-    .video { aspect-ratio: 16/9; flex: none; }
-  }
+  .cbtn { width: 36px; height: 36px; }
+  .cbtn.main { width: 42px; height: 42px; }
 }
-@media (max-height: 500px) and (min-width: 861px) {
-  .side { width: 300px; }
+@media (max-height: 500px) and (max-width: 860px) {
+  .stage { flex-direction: column; overflow-y: auto; }
+  .video { aspect-ratio: 16/9; flex: none; }
 }
 </style>
 </head>
@@ -179,16 +192,16 @@ body {
 <div class="topbar">
   <div class="logo">M</div>
   <span class="brand">Muzik player</span>
-  <span class="badge">v3</span>
+  <span class="badge">v3.1</span>
   <div class="searchwrap">
-    <input id="q" type="search" placeholder="Название трека или ссылка (YouTube / SoundCloud)…" autocomplete="off">
+    <input id="q" type="search" placeholder="Название или ссылка…" autocomplete="off">
     <select id="engine">
       <option value="soundcloud">SoundCloud</option>
       <option value="youtube">YouTube</option>
     </select>
-    <button class="btn" onclick="doSearch()">Найти</button>
+    <button class="btn" id="searchBtn" type="button">Найти</button>
   </div>
-  <button class="btn ghost" onclick="openSettings()">⚙</button>
+  <button class="btn ghost" id="settingsBtn" type="button" aria-label="Настройки">⚙</button>
 </div>
 
 <div class="layout">
@@ -202,9 +215,9 @@ body {
       </div>
       <div class="nowrow">
         <div class="controls">
-          <button class="cbtn" onclick="prevTrack()" title="Назад"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
-          <button class="cbtn main" onclick="togglePlay()" title="Пуск/пауза"><svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
-          <button class="cbtn" onclick="nextTrack()" title="Вперёд"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg></button>
+          <button class="cbtn" id="prevBtn" type="button" aria-label="Назад"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+          <button class="cbtn main" id="playBtn" type="button" aria-label="Пуск/пауза"><svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+          <button class="cbtn" id="nextBtn" type="button" aria-label="Вперёд"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg></button>
         </div>
         <div class="nowinfo">
           <div class="nowtitle" id="nowTitle">Трек не выбран</div>
@@ -212,7 +225,7 @@ body {
         </div>
         <div class="vol">
           <span style="font-size:13px">🔊</span>
-          <input type="range" id="volume" min="0" max="100" value="100" oninput="setVolume(this.value)">
+          <input type="range" id="volume" min="0" max="100" value="100">
         </div>
       </div>
     </div>
@@ -238,33 +251,47 @@ body {
   <div class="modal">
     <h2>Настройки</h2>
     <p>Цвет темы:</p>
-    <div class="themedots">
-      <div class="dot active" style="background:#3b82f6" onclick="setTheme('#3b82f6','rgba(59,130,246,.45)',this)"></div>
-      <div class="dot" style="background:#8b5cf6" onclick="setTheme('#8b5cf6','rgba(139,92,246,.45)',this)"></div>
-      <div class="dot" style="background:#ec4899" onclick="setTheme('#ec4899','rgba(236,72,153,.45)',this)"></div>
-      <div class="dot" style="background:#10b981" onclick="setTheme('#10b981','rgba(16,185,129,.45)',this)"></div>
+    <div class="themedots" id="themedots">
+      <div class="dot active" data-color="#3b82f6" data-glow="rgba(59,130,246,.45)" style="background:#3b82f6"></div>
+      <div class="dot" data-color="#8b5cf6" data-glow="rgba(139,92,246,.45)" style="background:#8b5cf6"></div>
+      <div class="dot" data-color="#ec4899" data-glow="rgba(236,72,153,.45)" style="background:#ec4899"></div>
+      <div class="dot" data-color="#10b981" data-glow="rgba(16,185,129,.45)" style="background:#10b981"></div>
     </div>
     <p><b>Локальный файл:</b> можно открыть аудио с устройства — тогда визуализатор работает по-настоящему, по спектру звука.</p>
-    <input type="file" id="fileInput" accept="audio/*" onchange="loadLocalFile(this.files[0])">
-    <p><b>YouTube API-ключ (необязательно):</b> поиск по словам надёжнее работает с бесплатным ключом YouTube Data API v3 (console.cloud.google.com). Ключ хранится только на твоём устройстве.</p>
-    <input id="apiKeyInput" placeholder="AIza… (можно оставить пустым)">
+    <input type="file" id="fileInput" accept="audio/*">
+    <p><b>YouTube API-ключ (необязательно):</b> поиск по словам на YouTube надёжнее работает с бесплатным ключом YouTube Data API v3 (console.cloud.google.com). Ключ хранится только на твоём устройстве.</p>
+    <input id="apiKeyInput" type="text" placeholder="AIza… (можно оставить пустым)">
     <div class="row">
-      <button class="btn ghost" onclick="closeSettings()">Отмена</button>
-      <button class="btn" onclick="saveSettings()">Сохранить</button>
+      <button class="btn ghost" id="cancelBtn" type="button">Отмена</button>
+      <button class="btn" id="saveBtn" type="button">Сохранить</button>
     </div>
   </div>
 </div>
 
 <script>
+(function () {
+'use strict';
+
 // ---------- state ----------
 let playlist = [];
 let currentIndex = -1;
 let results = [];
 let isPlaying = false;
 let apiKey = localStorage.getItem('muzik_apikey') || '';
-document.getElementById('apiKeyInput').value = apiKey;
+let currentAudio = null;
+let vizMode = null;        // 'simulated' | 'real' | null
+let analyser = null;
+let dataArray = null;
+let phase = 0;
 
 const $ = id => document.getElementById(id);
+$('apiKeyInput').value = apiKey;
+
+// ---------- error banner (если что-то падает — видно сразу) ----------
+window.addEventListener('error', function (e) {
+  var st = $('plStatus');
+  if (st) { st.textContent = 'Ошибка: ' + (e.message || 'неизвестно'); st.style.color = '#f87171'; }
+});
 
 // ---------- search ----------
 const PIPED_INSTANCES = [
@@ -288,25 +315,27 @@ function parseYouTubeId(url) {
 
 // Поиск по SoundCloud: настоящие треки с обложками и длительностью
 async function searchSoundcloud(query) {
-  const ids = scWorkingId ? [scWorkingId, ...SC_CLIENT_IDS.filter(i => i !== scWorkingId)] : SC_CLIENT_IDS;
+  const ids = scWorkingId ? [scWorkingId].concat(SC_CLIENT_IDS.filter(i => i !== scWorkingId)) : SC_CLIENT_IDS;
   for (const cid of ids) {
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 7000);
-      const r = await fetch(`https://api-v2.soundcloud.com/search/tracks?q=${encodeURIComponent(query)}&client_id=${cid}&limit=20`, { signal: ctrl.signal });
+      const t = setTimeout(function () { ctrl.abort(); }, 7000);
+      const r = await fetch('https://api-v2.soundcloud.com/search/tracks?q=' + encodeURIComponent(query) + '&client_id=' + cid + '&limit=20', { signal: ctrl.signal });
       clearTimeout(t);
       if (!r.ok) continue;
       const d = await r.json();
       if (d.collection && d.collection.length) {
         scWorkingId = cid;
-        return d.collection.map(it => ({
-          title: it.title,
-          artist: it.user && it.user.username ? it.user.username : 'SoundCloud',
-          platform: 'soundcloud',
-          url: it.permalink_url,
-          duration: (it.duration || 0) / 1000,
-          thumb: it.artwork_url ? it.artwork_url.replace('-large', '-t120x120') : null
-        }));
+        return d.collection.map(function (it) {
+          return {
+            title: it.title,
+            artist: it.user && it.user.username ? it.user.username : 'SoundCloud',
+            platform: 'soundcloud',
+            url: it.permalink_url,
+            duration: (it.duration || 0) / 1000,
+            thumb: it.artwork_url ? it.artwork_url.replace('-large', '-t120x120') : null
+          };
+        });
       }
     } catch (e) { /* следующий ключ */ }
   }
@@ -321,7 +350,7 @@ async function doSearch() {
   // 1. Прямая ссылка
   const ytId = parseYouTubeId(query);
   if (ytId) { addTrack({ title: 'YouTube • ' + ytId, artist: 'по ссылке', platform: 'youtube', videoId: ytId }); return; }
-  if (query.includes('soundcloud.com')) { addTrack({ title: 'SoundCloud трек', artist: 'по ссылке', platform: 'soundcloud', url: query }); return; }
+  if (query.indexOf('soundcloud.com') !== -1) { addTrack({ title: 'SoundCloud трек', artist: 'по ссылке', platform: 'soundcloud', url: query }); return; }
 
   // 2. Поиск по словам на выбранной платформе
   renderResults(null, 'Ищу «' + query + '» на ' + (engine === 'soundcloud' ? 'SoundCloud' : 'YouTube') + '…');
@@ -341,16 +370,18 @@ async function doSearch() {
   // 2b. YouTube: официальный API, если есть ключ
   if (apiKey) {
     try {
-      const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=15&q=${encodeURIComponent(query)}&key=${apiKey}`);
+      const r = await fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=15&q=' + encodeURIComponent(query) + '&key=' + apiKey);
       const d = await r.json();
       if (d.items && d.items.length) {
-        results = d.items.map(it => ({
-          title: it.snippet.title.replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'"),
-          artist: it.snippet.channelTitle,
-          platform: 'youtube',
-          videoId: it.id.videoId,
-          thumb: it.snippet.thumbnails.default.url
-        }));
+        results = d.items.map(function (it) {
+          return {
+            title: it.snippet.title.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'"),
+            artist: it.snippet.channelTitle,
+            platform: 'youtube',
+            videoId: it.id.videoId,
+            thumb: it.snippet.thumbnails.default.url
+          };
+        });
         renderResults(results, 'Найдено через YouTube API');
         return;
       }
@@ -358,22 +389,24 @@ async function doSearch() {
     } catch (e) { /* ключ не сработал — пробуем дальше */ }
   }
 
-  // 2b. Публичные Piped-инстансы (без ключа)
+  // 2c. Публичные Piped-инстансы (без ключа)
   for (const base of PIPED_INSTANCES) {
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 6000);
-      const r = await fetch(`${base}/search?q=${encodeURIComponent(query)}&filter=music_songs`, { signal: ctrl.signal });
+      const t = setTimeout(function () { ctrl.abort(); }, 6000);
+      const r = await fetch(base + '/search?q=' + encodeURIComponent(query) + '&filter=music_songs', { signal: ctrl.signal });
       clearTimeout(t);
       const d = await r.json();
       if (d.items && d.items.length) {
-        results = d.items.map(it => ({
-          title: it.title,
-          artist: it.uploaderName,
-          platform: 'youtube',
-          videoId: (it.url || '').split('v=')[1] || it.id,
-          duration: it.duration
-        }));
+        results = d.items.map(function (it) {
+          return {
+            title: it.title,
+            artist: it.uploaderName,
+            platform: 'youtube',
+            videoId: (it.url || '').split('v=')[1] || it.id,
+            duration: it.duration
+          };
+        });
         renderResults(results, 'Найдено через Piped');
         return;
       }
@@ -386,16 +419,23 @@ async function doSearch() {
 function renderResults(items, status) {
   const box = $('results');
   box.innerHTML = '';
-  if (items === null) { box.innerHTML = `<div class="empty">${status}</div>`; return; }
-  if (!items.length) { box.innerHTML = `<div class="empty">${status}</div>`; return; }
-  items.forEach(it => {
+  if (!items || !items.length) {
+    const d = document.createElement('div');
+    d.className = 'empty';
+    d.textContent = status;
+    box.appendChild(d);
+    return;
+  }
+  items.forEach(function (it) {
     const el = document.createElement('div');
     el.className = 'item';
-    const iconHtml = it.thumb
-      ? `<div class="ic"><img src="${it.thumb}" alt="" style="width:100%;height:100%;border-radius:9px;object-fit:cover"></div>`
-      : `<div class="ic ${it.platform === 'youtube' ? 'yt' : 'sc'}">${it.platform === 'youtube' ? '▶' : '☁'}</div>`;
-    el.innerHTML = `${iconHtml}<div class="meta"><div class="t">${esc(it.title)}</div><div class="a">${esc(it.artist)}${it.duration ? ' • ' + fmt(it.duration) : ''}</div></div>`;
-    el.onclick = () => addTrack(it);
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    const icon = it.thumb
+      ? '<div class="ic"><img src="' + it.thumb + '" alt="" style="width:100%;height:100%;object-fit:cover"></div>'
+      : '<div class="ic ' + (it.platform === 'youtube' ? 'yt' : 'sc') + '">' + (it.platform === 'youtube' ? '▶' : '☁') + '</div>';
+    el.innerHTML = icon + '<div class="meta"><div class="t">' + esc(it.title) + '</div><div class="a">' + esc(it.artist) + (it.duration ? ' • ' + fmt(it.duration) : '') + '</div></div>';
+    el.addEventListener('click', function () { addTrack(it); });
     box.appendChild(el);
   });
 }
@@ -411,16 +451,28 @@ function addTrack(track) {
 function renderPlaylist() {
   const box = $('playlist');
   $('plStatus').textContent = playlist.length + ' треков';
+  $('plStatus').style.color = '';
   box.innerHTML = '';
-  if (!playlist.length) { box.innerHTML = '<div class="empty">Плейлист пуст</div>'; return; }
-  playlist.forEach((t, i) => {
+  if (!playlist.length) {
+    const d = document.createElement('div');
+    d.className = 'empty';
+    d.textContent = 'Плейлист пуст';
+    box.appendChild(d);
+    return;
+  }
+  playlist.forEach(function (t, i) {
     const el = document.createElement('div');
     el.className = 'item' + (i === currentIndex ? ' active' : '');
-    el.innerHTML = `<div class="ic ${t.platform === 'youtube' ? 'yt' : 'sc'}">${t.platform === 'youtube' ? '▶' : '☁'}</div>
-      <div class="meta"><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)}</div></div>
-      <button class="x">✕</button>`;
-    el.onclick = () => playTrack(i);
-    el.querySelector('.x').onclick = e => { e.stopPropagation(); removeTrack(i); };
+    el.innerHTML =
+      '<div class="ic ' + (t.platform === 'youtube' ? 'yt' : 'sc') + '">' + (t.platform === 'youtube' ? '▶' : '☁') + '</div>' +
+      '<div class="meta"><div class="t">' + esc(t.title) + '</div><div class="a">' + esc(t.artist) + '</div></div>';
+    el.addEventListener('click', function () { playTrack(i); });
+    const x = document.createElement('button');
+    x.className = 'x';
+    x.type = 'button';
+    x.textContent = '✕';
+    x.addEventListener('click', function (e) { e.stopPropagation(); removeTrack(i); });
+    el.appendChild(x);
     box.appendChild(el);
   });
 }
@@ -434,15 +486,16 @@ function removeTrack(i) {
 
 function stopPlayback() {
   $('videoBox').innerHTML = '';
-  $('videoBox').appendChild($('placeholder'));
-  $('placeholder').style.display = '';
-  isPlaying = false; updatePlayIcon();
+  const ph = $('placeholder');
+  $('videoBox').appendChild(ph);
+  ph.style.display = '';
+  isPlaying = false;
+  updatePlayIcon();
   vizMode = null;
+  currentAudio = null;
 }
 
 // ---------- playback ----------
-let currentAudio = null;
-
 function playTrack(i) {
   if (i < 0 || i >= playlist.length) return;
   currentIndex = i;
@@ -454,11 +507,11 @@ function playTrack(i) {
   box.innerHTML = '';
 
   if (t.platform === 'youtube') {
-    box.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${t.videoId}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-    startViz('simulated'); // iframe не даёт доступ к аудио — анимируем синхронно с "играет"
+    box.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + t.videoId + '?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+    startViz('simulated');
     isPlaying = true;
   } else if (t.platform === 'soundcloud') {
-    box.innerHTML = `<iframe src="https://w.soundcloud.com/player/?url=${encodeURIComponent(t.url)}&auto_play=true&color=%233b82f6" allow="autoplay"></iframe>`;
+    box.innerHTML = '<iframe src="https://w.soundcloud.com/player/?url=' + encodeURIComponent(t.url) + '&auto_play=true&color=%233b82f6" allow="autoplay"></iframe>';
     startViz('simulated');
     isPlaying = true;
   } else if (t.platform === 'local') {
@@ -466,8 +519,7 @@ function playTrack(i) {
     audio.volume = $('volume').value / 100;
     audio.play();
     currentAudio = audio;
-    audio.onended = nextTrack;
-    box.innerHTML = '';
+    audio.addEventListener('ended', nextTrack);
     const ap = document.createElement('div');
     ap.className = 'placeholder';
     ap.innerHTML = '<div>▶ Локальный файл играет. Спектр — реальный.</div>';
@@ -486,7 +538,7 @@ function togglePlay() {
     if (currentAudio.paused) { currentAudio.play(); isPlaying = true; }
     else { currentAudio.pause(); isPlaying = false; }
   } else {
-    isPlaying = !isPlaying; // для iframe управляет сам YouTube-плеер
+    isPlaying = !isPlaying; // для iframe управляет сам YouTube/SoundCloud плеер
   }
   updatePlayIcon();
 }
@@ -506,21 +558,20 @@ function updatePlayIcon() {
 // ---------- visualizer ----------
 const canvas = $('viz');
 const ctx = canvas.getContext('2d');
-let vizMode = null;       // 'simulated' | 'real' | null
-let analyser = null;
-let dataArray = null;
-let phase = 0;
 
 function resizeCanvas() {
   const r = canvas.getBoundingClientRect();
-  canvas.width = r.width * devicePixelRatio;
-  canvas.height = r.height * devicePixelRatio;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, r.width * dpr);
+  canvas.height = Math.max(1, r.height * dpr);
 }
 window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', function () { setTimeout(resizeCanvas, 300); });
 
 function attachRealViz(audioEl) {
   try {
-    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ac = new AC();
     const src = ac.createMediaElementSource(audioEl);
     analyser = ac.createAnalyser();
     analyser.fftSize = 128;
@@ -532,7 +583,7 @@ function attachRealViz(audioEl) {
 }
 
 function startViz(mode) {
-  if (mode !== 'real') { analyser = null; }
+  if (mode !== 'real') analyser = null;
   vizMode = mode;
   resizeCanvas();
 }
@@ -545,34 +596,34 @@ function draw() {
   const bars = 40;
   const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
 
-  let values = new Array(bars).fill(0);
+  const values = new Array(bars).fill(0);
   if (vizMode === 'real' && analyser && isPlaying) {
     analyser.getByteFrequencyData(dataArray);
     for (let i = 0; i < bars; i++) values[i] = dataArray[Math.floor(i * dataArray.length / bars)] / 255;
   } else if (vizMode === 'simulated' && isPlaying) {
     phase += 0.09;
     for (let i = 0; i < bars; i++) {
-      const beat = Math.pow(Math.max(0, Math.sin(phase * 2.2)), 6);   // пульс "бита"
+      const beat = Math.pow(Math.max(0, Math.sin(phase * 2.2)), 6);
       const noise = 0.35 * Math.sin(i * 0.55 + phase * 3) + 0.3 * Math.sin(i * 0.21 - phase * 1.7);
-      const center = 1 - Math.abs(i - bars / 2) / (bars / 2);          // горка к центру
+      const center = 1 - Math.abs(i - bars / 2) / (bars / 2);
       values[i] = Math.max(0, Math.min(1, 0.15 + beat * 0.6 + noise * 0.3 + center * 0.35));
     }
   } else {
     for (let i = 0; i < bars; i++) values[i] = 0.05;
   }
 
-  const gap = 3 * devicePixelRatio;
+  const dpr = window.devicePixelRatio || 1;
+  const gap = 3 * dpr;
   const bw = (w - gap * (bars - 1)) / bars;
   for (let i = 0; i < bars; i++) {
-    const bh = Math.max(3 * devicePixelRatio, values[i] * h);
+    const bh = Math.max(3 * dpr, values[i] * h);
     const x = i * (bw + gap);
     const grad = ctx.createLinearGradient(0, h - bh, 0, h);
     grad.addColorStop(0, accent);
     grad.addColorStop(1, 'rgba(255,255,255,0.08)');
     ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(x, h - bh, bw, bh, 3 * devicePixelRatio) : ctx.rect(x, h - bh, bw, bh);
-    ctx.fill();
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, h - bh, bw, bh, 3 * dpr); ctx.fill(); }
+    else { ctx.fillRect(x, h - bh, bw, bh); }
   }
 }
 requestAnimationFrame(draw);
@@ -593,21 +644,37 @@ function saveSettings() {
   localStorage.setItem('muzik_apikey', apiKey);
   closeSettings();
 }
-$('settingsModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeSettings(); });
 
 function setTheme(color, glow, el) {
   document.documentElement.style.setProperty('--accent', color);
   document.documentElement.style.setProperty('--accent-glow', glow);
-  document.querySelectorAll('.dot').forEach(d => d.classList.remove('active'));
+  document.querySelectorAll('.dot').forEach(function (d) { d.classList.remove('active'); });
   if (el) el.classList.add('active');
 }
 
-// Enter в поиске
-$('q').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+// ---------- event wiring: только addEventListener, без inline onclick ----------
+$('searchBtn').addEventListener('click', doSearch);
+$('q').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSearch(); });
+$('playBtn').addEventListener('click', togglePlay);
+$('prevBtn').addEventListener('click', prevTrack);
+$('nextBtn').addEventListener('click', nextTrack);
+$('volume').addEventListener('input', function () { setVolume(this.value); });
+$('settingsBtn').addEventListener('click', openSettings);
+$('cancelBtn').addEventListener('click', closeSettings);
+$('saveBtn').addEventListener('click', saveSettings);
+$('fileInput').addEventListener('change', function () { loadLocalFile(this.files[0]); });
+$('settingsModal').addEventListener('click', function (e) { if (e.target === this) closeSettings(); });
+$('themedots').addEventListener('click', function (e) {
+  const dot = e.target.closest('.dot');
+  if (!dot) return;
+  setTheme(dot.getAttribute('data-color'), dot.getAttribute('data-glow'), dot);
+});
 
 // helpers
-function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function fmt(sec) { if (!sec || sec < 0) return ''; sec = Math.round(sec); return Math.floor(sec/60) + ':' + String(sec%60).padStart(2,'0'); }
+function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function fmt(sec) { if (!sec || sec < 0) return ''; sec = Math.round(sec); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
+
+})();
 </script>
 </body>
 </html>
