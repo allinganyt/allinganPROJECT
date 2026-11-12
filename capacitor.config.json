@@ -1,5 +1,8 @@
 {
   "appId": "com.allinganyt.muzikplayer",
   "appName": "Muzik Player",
-  "webDir": "www"
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
 }
