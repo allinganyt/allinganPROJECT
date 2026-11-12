@@ -151,6 +151,7 @@ button { cursor: pointer; }
   padding: 9px 11px; display: flex; align-items: center; gap: 10px;
 }
 .item:active { background: rgba(30,45,80,.6); }
+.item.unavailable { opacity: .4; }
 .item.active { border-color: var(--accent); background: rgba(59,130,246,.12); }
 .item .ic { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; overflow: hidden;
   display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
@@ -164,6 +165,39 @@ button { cursor: pointer; }
 .item .x:active { color: #f87171; }
 .empty { color: var(--muted); font-size: 12px; text-align: center; padding: 14px 6px; }
 .status { font-size: 11px; color: var(--muted); }
+
+/* ===== Mini-player (нижняя панель, видна везде) ===== */
+.miniplayer {
+  display: none; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  background: rgba(10,16,35,.75);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0; z-index: 20;
+  box-shadow: 0 -10px 30px rgba(0,0,0,.4);
+}
+body.has-track .miniplayer { display: flex; }
+.mp-art {
+  width: 40px; height: 40px; border-radius: 12px; background: var(--accent);
+  display: flex; align-items: center; justify-content: center; font-size: 17px;
+  box-shadow: 0 0 15px var(--accent-glow); flex-shrink: 0; overflow: hidden;
+}
+.mp-art img { width: 100%; height: 100%; object-fit: cover; }
+.mp-info { flex: 1; min-width: 0; }
+.mp-title { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-artist { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-btn {
+  background: rgba(255,255,255,.08); border: 1px solid var(--border); color: #fff;
+  width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0;
+}
+.mp-btn svg { width: 15px; height: 15px; fill: currentColor; pointer-events: none; }
+.mp-btn:active { transform: scale(.92); }
+.mp-btn.play { width: 44px; height: 44px; background: var(--accent); border: none; box-shadow: 0 0 15px var(--accent-glow); }
+.mp-btn.play svg { width: 19px; height: 19px; }
+.mp-btn.like.liked { color: #f43f5e; border-color: rgba(244,63,94,.4); }
+.item .like-mark { color: #f43f5e; font-size: 10px; margin-left: 4px; }
 
 /* ===== Settings modal ===== */
 .modalbg { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
@@ -295,6 +329,19 @@ button { cursor: pointer; }
     <div class="status" id="plStatus">0 треков</div>
     <div class="list" id="playlist"><div class="empty">Плейлист пуст</div></div>
   </div>
+</div>
+
+<!-- ===== Mini-player: виден поверх любой вкладки ===== -->
+<div class="miniplayer" id="miniplayer">
+  <div class="mp-art" id="mpArt">♪</div>
+  <div class="mp-info">
+    <div class="mp-title" id="mpTitle">Трек не выбран</div>
+    <div class="mp-artist" id="mpArtist">Muzik Engine</div>
+  </div>
+  <button class="mp-btn like" id="mpLike" type="button" aria-label="Лайк">♥</button>
+  <button class="mp-btn" id="mpPrev" type="button" aria-label="Назад"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+  <button class="mp-btn play" id="mpPlay" type="button" aria-label="Пауза/пуск"><svg id="mpPlayIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+  <button class="mp-btn" id="mpNext" type="button" aria-label="Вперёд"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg></button>
 </div>
 
 <div class="modalbg" id="settingsModal">
@@ -621,10 +668,10 @@ function renderPlaylist() {
   }
   playlist.forEach(function (t, i) {
     const el = document.createElement('div');
-    el.className = 'item' + (i === currentIndex ? ' active' : '');
+    el.className = 'item' + (i === currentIndex ? ' active' : '') + (t.unavailable ? ' unavailable' : '');
     el.innerHTML =
       '<div class="ic ' + (t.platform === 'youtube' ? 'yt' : (t.platform === 'builtin' ? '' : 'sc')) + '">' + (t.platform === 'youtube' ? '▶' : (t.platform === 'builtin' ? '★' : '☁')) + '</div>' +
-      '<div class="meta"><div class="t">' + esc(t.title) + '</div><div class="a">' + esc(t.artist) + '</div></div>';
+      '<div class="meta"><div class="t">' + esc(t.title) + (isLiked(t.url) ? '<span class="like-mark">♥</span>' : '') + '</div><div class="a">' + esc(t.artist) + '</div></div>';
     el.addEventListener('click', function () { playTrack(i); });
     const x = document.createElement('button');
     x.className = 'x';
@@ -645,7 +692,9 @@ function removeTrack(i) {
 
 function stopPlayback() {
   scWidget = null;
+  document.body.classList.remove('has-track');
   $('videoBox').innerHTML = '';
+  $('videoBox').classList.remove('column');
   const ph = $('placeholder');
   $('videoBox').appendChild(ph);
   ph.style.display = '';
@@ -664,6 +713,11 @@ async function playTrack(i) {
   const t = playlist[i];
   $('nowTitle').textContent = t.title;
   $('nowArtist').textContent = t.artist;
+  // Мини-плеер снизу
+  $('mpTitle').textContent = t.title;
+  $('mpArtist').textContent = t.artist;
+  document.body.classList.add('has-track');
+  updateLikeIcon();
   $('plStatus').textContent = 'Запускаю «' + t.title + '»…';
   $('plStatus').style.color = '';
 
@@ -710,8 +764,12 @@ async function playTrack(i) {
       box.appendChild(audio);
       currentAudio = audio;
       audio.addEventListener('ended', nextTrack);
-      audio.addEventListener('play', function () { isPlaying = true; updatePlayIcon(); });
+      audio.addEventListener('play', function () { isPlaying = true; updatePlayIcon(); failStreak = 0; });
       audio.addEventListener('pause', function () { isPlaying = false; updatePlayIcon(); });
+      // Битый трек: показываем, помечаем и автоматически идём дальше
+      audio.addEventListener('error', function () {
+        markUnavailable(t);
+      });
       try { await audio.play(); } catch (e) { /* пользователь тапнет play в самом плеере */ }
       $('plStatus').textContent = 'Играет прямой поток';
       startViz('simulated');
@@ -773,13 +831,52 @@ function togglePlay() {
 function nextTrack() { if (playlist.length) playTrack((currentIndex + 1) % playlist.length); }
 function prevTrack() { if (playlist.length) playTrack((currentIndex - 1 + playlist.length) % playlist.length); }
 
+// Битые треки: помечаем и идём дальше, но не зацикливаемся
+let failStreak = 0;
+function markUnavailable(t) {
+  if (t) t.unavailable = true;
+  $('plStatus').textContent = '«' + (t ? t.title : 'трек') + '» недоступен — включаю следующий';
+  $('plStatus').style.color = '#f87171';
+  failStreak++;
+  renderPlaylist();
+  if (failStreak < playlist.length) nextTrack();
+  else { failStreak = 0; stopPlayback(); $('plStatus').textContent = 'Все треки недоступны 😔'; }
+}
+
 function setVolume(v) { if (currentAudio) currentAudio.volume = v / 100; }
 
 function updatePlayIcon() {
-  $('playIcon').innerHTML = isPlaying
+  const icon = isPlaying
     ? '<path d="M6 19h4V5H6zm8-14v14h4V5z"/>'
     : '<path d="M8 5v14l11-7z"/>';
+  $('playIcon').innerHTML = icon;
+  $('mpPlayIcon').innerHTML = icon;
   $('vizLabel').textContent = isPlaying ? 'Визуализатор • ' + (vizMode === 'real' ? 'реальный спектр' : 'режим под бит') : 'Визуализатор (пауза)';
+}
+
+// ---------- лайки ----------
+function getLikes() {
+  try { return JSON.parse(localStorage.getItem('muzik_likes') || '[]'); } catch (e) { return []; }
+}
+function isLiked(url) { return !!url && getLikes().indexOf(url) !== -1; }
+function toggleLike() {
+  if (currentIndex === -1) return;
+  const t = playlist[currentIndex];
+  if (!t.url) return;
+  let likes = getLikes();
+  if (isLiked(t.url)) likes = likes.filter(function (u) { return u !== t.url; });
+  else likes.push(t.url);
+  localStorage.setItem('muzik_likes', JSON.stringify(likes));
+  updateLikeIcon();
+  renderPlaylist();
+}
+function updateLikeIcon() {
+  const btn = $('mpLike');
+  if (btn && currentIndex >= 0 && playlist[currentIndex] && isLiked(playlist[currentIndex].url)) {
+    btn.classList.add('liked');
+  } else if (btn) {
+    btn.classList.remove('liked');
+  }
 }
 
 // ---------- visualizer ----------
@@ -897,6 +994,10 @@ $('themedots').addEventListener('click', function (e) {
   setTheme(dot.getAttribute('data-color'), dot.getAttribute('data-glow'), dot);
 });
 $('builtinBtn').addEventListener('click', loadBuiltins);
+$('mpPlay').addEventListener('click', togglePlay);
+$('mpPrev').addEventListener('click', prevTrack);
+$('mpNext').addEventListener('click', nextTrack);
+$('mpLike').addEventListener('click', toggleLike);
 $('tabPlayer').addEventListener('click', function () {
   document.body.classList.remove('showlist');
   $('tabPlayer').classList.add('active');
