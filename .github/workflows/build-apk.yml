@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install Capacitor
+      - name: Install deps
         run: npm install
       - name: Prepare www
         run: |
@@ -28,6 +28,8 @@ jobs:
           cp index.html www/index.html
       - name: Add Android platform
         run: npx cap add android
+      - name: Generate app icons from logo
+        run: node gen-icons.js
       - name: Build APK
         run: |
           cd android
