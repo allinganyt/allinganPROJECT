@@ -459,6 +459,11 @@ body.expanded .expanded-player { display: flex; }
     <input type="file" id="fileInput" accept="audio/*">
     <p><b>YouTube API-ключ (необязательно):</b> поиск по словам на YouTube надёжнее работает с бесплатным ключом YouTube Data API v3 (console.cloud.google.com). Ключ хранится только на твоём устройстве.</p>
     <input id="apiKeyInput" type="text" placeholder="AIza… (можно оставить пустым)">
+    <p style="margin-top:14px"><b>Обновления:</b> версия плеера — <b id="curVersion"></b></p>
+    <div class="row" style="margin-bottom:8px">
+      <button class="btn ghost" id="updCheckBtn" type="button">Проверить обновления</button>
+    </div>
+    <p id="updInfo" style="font-size:13px;opacity:.85"></p>
     <div class="row">
       <button class="btn ghost" id="cancelBtn" type="button">Отмена</button>
       <button class="btn" id="saveBtn" type="button">Сохранить</button>
@@ -1319,10 +1324,3 @@ function draw() {
     const bh = Math.max(3 * dpr, values[i] * h);
     const x = i * (bw + gap);
     const grad = ctx.createLinearGradient(0, h - bh, 0, h);
-    grad.addColorStop(0, accent);
-    grad.addColorStop(1, 'rgba(255,255,255,0.08)');
-    ctx.fillStyle = grad;
-    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, h - bh, bw, bh, 3 * dpr); ctx.fill(); }
-    else { ctx.fillRect(x, h - bh, bw, bh); }
-  }
-
