@@ -1,9 +1,5 @@
 {
   "appId": "com.allinganyt.muzikplayer",
   "appName": "Muzik Player",
-  "webDir": "www",
-  "server": {
-    "url": "https://allinganyt.github.io/allinganPROJECT/",
-    "cleartext": false
-  }
+  "webDir": "www"
 }
