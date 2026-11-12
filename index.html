@@ -676,7 +676,8 @@ async function resolveScStream(permalink) {
       if (!r2.ok) return null;
       const d = await r2.json();
       if (!d.url) return null;
-      const res = { url: d.url, art: track.artwork_url ? track.artwork_url.replace('-large', '-t500x500') : null };
+      const res = { url: d.url, art: track.artwork_url ? track.artwork_url.replace('-large', '-t500x500') : null,
+        title: track.title || null, artist: (track.user && track.user.username) || null };
       scStreamCache[permalink] = { url: res.url, art: res.art, ts: Date.now() };
       return res;
     } catch (e) { return null; }
@@ -765,7 +766,19 @@ async function doSearch() {
   // 1. Прямая ссылка
   const ytId = parseYouTubeId(query);
   if (ytId) { addTrack({ title: 'YouTube • ' + ytId, artist: 'по ссылке', platform: 'youtube', videoId: ytId }); return; }
-  if (query.indexOf('soundcloud.com') !== -1) { addTrack({ title: 'SoundCloud трек', artist: 'по ссылке', platform: 'soundcloud', url: query }); return; }
+  if (query.indexOf('soundcloud.com') !== -1) {
+    // вставил ссылку на трек SoundCloud: подтягиваем название и играем
+    renderResults(null, 'Гружу трек с SoundCloud…');
+    const st = await resolveScStream(query);
+    addTrack({
+      title: (st && st.title) || 'SoundCloud трек',
+      artist: (st && st.artist) || 'по ссылке',
+      platform: 'soundcloud',
+      url: query,
+      thumb: (st && st.art) || null
+    });
+    return;
+  }
   // прямая ссылка на аудиофайл (mp3/m4a/ogg/wav) — играет даже там, где SoundCloud заблокирован
   if (/^https?:\/\/.+\.(mp3|m4a|ogg|wav)(\?.*)?$/i.test(query)) {
     var fname = query.split('/').pop().split('?')[0].replace(/\.[^.]+$/, '');
@@ -910,28 +923,12 @@ const DIRECT_TRACKS = [
 ];
 
 function loadBuiltins() {
-  playlist = BUILTIN_TRACKS.map(function (t, i) {
-    return {
-      id: 'b' + i,
-      title: t.title,
-      artist: t.artist,
-      platform: 'soundcloud',
-      url: t.url,
-      alts: t.alts || null
-    };
-  });
-  // общественное достояние: играет без VPN
-  DIRECT_TRACKS.forEach(function (t) {
-    playlist.push({
-      id: 'd' + t.file,
-      title: t.title,
-      artist: t.artist,
-      platform: 'direct',
-      url: COMMONS_BASE + encodeURIComponent(t.file)
-    });
-  });
+  // автоподборку больше не грузим: без VPN она всё равно мёртвая.
+  // Плеер стартует пустым: вставь ссылку на трек или залей свою музыку в папку music в репозитории.
+  playlist = [];
   currentIndex = -1;
   renderPlaylist();
+  $('plStatus').textContent = 'Плейлист пуст: вставь ссылку на трек (🔍) или залей свою музыку';
 }
 
 function addTrack(track) {
@@ -1253,7 +1250,3 @@ async function playTrack(i) {
       audio.controls = true;
       audio.style.width = '100%';
       audio.style.height = '54px';
-      audio.volume = $('volume').value / 100;
-      box.innerHTML = '';
-      const cap = document.createElement('div');
-      cap.className = 'placeholder';
