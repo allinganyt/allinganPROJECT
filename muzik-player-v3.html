@@ -318,6 +318,7 @@ body.expanded .expanded-player { display: flex; }
     <button class="btn" id="searchBtn" type="button">Найти</button>
   </div>
   <button class="btn ghost" id="settingsBtn" type="button" aria-label="Настройки">⚙</button>
+  <button class="btn ghost" id="accountBtn" type="button" aria-label="Аккаунт">👤</button>
 </div>
 
 <div class="layout">
@@ -424,6 +425,31 @@ body.expanded .expanded-player { display: flex; }
   </div>
 </div>
 
+<div class="modalbg" id="accountModal">
+  <div class="modal">
+    <h2>Аккаунт</h2>
+    <p id="accInfo" style="opacity:.8">Профили хранятся только в этом браузере, без облака. У каждого аккаунта свой плейлист и лайки.</p>
+    <div id="accLoginBox">
+      <input id="accUser" type="text" placeholder="Имя аккаунта" autocomplete="off" style="margin-bottom:8px">
+      <input id="accPass" type="password" placeholder="Пароль" autocomplete="off">
+      <p id="accErr" style="color:#f87171;font-size:13px"></p>
+      <div class="row">
+        <button class="btn ghost" id="accCancelBtn" type="button">Закрыть</button>
+        <button class="btn" id="accRegBtn" type="button">Создать</button>
+        <button class="btn" id="accLoginBtn" type="button">Войти</button>
+      </div>
+    </div>
+    <div id="accLoggedBox" style="display:none">
+      <p>Вы вошли как <b id="accWho"></b></p>
+      <div class="row">
+        <button class="btn ghost" id="accLogoutBtn" type="button">Выйти</button>
+        <button class="btn" id="accCloseBtn" type="button">Закрыть</button>
+      </div>
+      <p style="opacity:.7;font-size:12px">Плейлист и лайки сохраняются автоматически при каждом изменении.</p>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
 'use strict';
@@ -447,6 +473,11 @@ $('apiKeyInput').value = apiKey;
 window.addEventListener('error', function (e) {
   var st = $('plStatus');
   if (st) { st.textContent = 'Ошибка: ' + (e.message || 'неизвестно'); st.style.color = '#f87171'; }
+});
+window.addEventListener('unhandledrejection', function (e) {
+  var st = $('plStatus');
+  var msg = e.reason && (e.reason.message || String(e.reason)) || 'неизвестно';
+  if (st && msg.indexOf('AbortError') === -1) { st.textContent = 'Ошибка: ' + msg; st.style.color = '#f87171'; }
 });
 
 // ---------- search ----------
@@ -496,7 +527,8 @@ async function scIdWorks(id) {
 }
 
 // Добываем рабочий client_id: сначала кешированный/известные, иначе вытаскиваем из JS-бандлов soundcloud.com
-async function getScClientId() {
+async function getScClientId(force) {
+  if (!force && scWorkingId) return scWorkingId; // доверяем кешу: лишняя проверка = -1-2 сек на каждый трек
   if (scWorkingId && await scIdWorks(scWorkingId)) return scWorkingId;
   localStorage.removeItem('sc_cid');
   for (const id of SC_CLIENT_IDS) {
@@ -522,23 +554,50 @@ async function getScClientId() {
   return null;
 }
 
-// Ссылка на трек SoundCloud -> прямой mp3-поток
+// Ссылка на трек SoundCloud -> прямой mp3-поток (+ кеш на сессию и таймауты)
+const scStreamCache = {}; // ссылки SoundCloud живут недолго, кеш держим 10 минут
+
 async function resolveScStream(permalink) {
-  const cid = await getScClientId();
+  const cached = scStreamCache[permalink];
+  if (cached && Date.now() - cached.ts < 600000) return { url: cached.url, art: cached.art };
+  let cid = await getScClientId();
   if (!cid) return null;
-  try {
-    const r = await fetch('https://api-v2.soundcloud.com/resolve?url=' + encodeURIComponent(permalink) + '&client_id=' + cid);
-    if (!r.ok) return null;
-    const track = await r.json();
-    if (!track || !track.media || !track.media.transcodings || !track.media.transcodings.length) return null;
-    const prog = track.media.transcodings.filter(function (x) { return x.format && x.format.protocol === 'progressive'; })[0];
-    if (!prog) return null;
-    const r2 = await fetch(prog.url + '?client_id=' + cid);
-    if (!r2.ok) return null;
-    const d = await r2.json();
-    if (!d.url) return null;
-    return { url: d.url, art: track.artwork_url ? track.artwork_url.replace('-large', '-t500x500') : null };
-  } catch (e) { return null; }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const ctrl = new AbortController();
+      const tm = setTimeout(function () { ctrl.abort(); }, 8000);
+      const r = await fetch('https://api-v2.soundcloud.com/resolve?url=' + encodeURIComponent(permalink) + '&client_id=' + cid, { signal: ctrl.signal });
+      clearTimeout(tm);
+      if (r.status === 401 || r.status === 403) { // client_id протух — добываем свежий и пробуем ещё раз
+        scWorkingId = null; localStorage.removeItem('sc_cid');
+        cid = await getScClientId(true);
+        if (!cid) return null;
+        continue;
+      }
+      if (!r.ok) return null;
+      const track = await r.json();
+      if (!track || !track.media || !track.media.transcodings || !track.media.transcodings.length) return null;
+      const prog = track.media.transcodings.filter(function (x) { return x.format && x.format.protocol === 'progressive'; })[0];
+      if (!prog) return null;
+      const ctrl2 = new AbortController();
+      const tm2 = setTimeout(function () { ctrl2.abort(); }, 8000);
+      const r2 = await fetch(prog.url + '?client_id=' + cid, { signal: ctrl2.signal });
+      clearTimeout(tm2);
+      if (r2.status === 401 || r2.status === 403) {
+        scWorkingId = null; localStorage.removeItem('sc_cid');
+        cid = await getScClientId(true);
+        if (!cid) return null;
+        continue;
+      }
+      if (!r2.ok) return null;
+      const d = await r2.json();
+      if (!d.url) return null;
+      const res = { url: d.url, art: track.artwork_url ? track.artwork_url.replace('-large', '-t500x500') : null };
+      scStreamCache[permalink] = { url: res.url, art: res.art, ts: Date.now() };
+      return res;
+    } catch (e) { return null; }
+  }
+  return null;
 }
 
 function parseYouTubeId(url) {
@@ -741,7 +800,90 @@ function renderPlaylist() {
     el.appendChild(x);
     box.appendChild(el);
   });
+  saveCurrentProfile(); // автосейв плейлиста в профиль аккаунта
 }
+
+// ---------- аккаунты (локальные профили, без облака) ----------
+let currentUserName = localStorage.getItem('muzik_user') || null;
+
+function getUsers() {
+  try { return JSON.parse(localStorage.getItem('muzik_users') || '{}'); } catch (e) { return {}; }
+}
+function setUsers(u) { localStorage.setItem('muzik_users', JSON.stringify(u)); }
+function hashPass(s) {
+  var h = 5381;
+  for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return 'h' + h.toString(36);
+}
+function serializePlaylist() {
+  return playlist.map(function (t) {
+    var o = { title: t.title, artist: t.artist, platform: t.platform };
+    ['url', 'alts', 'videoId', 'thumb', 'query', 'duration'].forEach(function (k) { if (t[k]) o[k] = t[k]; });
+    return o;
+  });
+}
+function saveCurrentProfile() {
+  if (!currentUserName) return;
+  var users = getUsers();
+  if (!users[currentUserName]) return;
+  users[currentUserName].playlist = serializePlaylist();
+  users[currentUserName].likes = getLikes();
+  setUsers(users);
+}
+function loadProfile(name) {
+  var u = getUsers()[name];
+  if (!u) return;
+  playlist = (u.playlist || []).map(function (t, i) { return Object.assign({ id: 'u' + i }, t); });
+  localStorage.setItem('muzik_likes', JSON.stringify(u.likes || []));
+  currentIndex = -1;
+  renderPlaylist();
+  updateLikeIcon();
+}
+function updateAccountUI() {
+  var logged = !!currentUserName;
+  $('accLoginBox').style.display = logged ? 'none' : '';
+  $('accLoggedBox').style.display = logged ? '' : 'none';
+  if (logged) $('accWho').textContent = currentUserName;
+  $('accountBtn').textContent = logged ? currentUserName.charAt(0).toUpperCase() : '👤';
+}
+function doLogin(register) {
+  var name = $('accUser').value.trim();
+  var pass = $('accPass').value;
+  $('accErr').textContent = '';
+  if (!name || !pass) { $('accErr').textContent = 'Введи имя и пароль'; return; }
+  var users = getUsers();
+  if (register) {
+    if (users[name]) { $('accErr').textContent = 'Такой аккаунт уже есть — войди'; return; }
+    saveCurrentProfile(); // не теряем текущую музыку прежнего пользователя
+    users[name] = { pass: hashPass(pass), playlist: [], likes: [] };
+    setUsers(users);
+  } else {
+    if (!users[name]) { $('accErr').textContent = 'Аккаунт не найден — создай его'; return; }
+    if (users[name].pass !== hashPass(pass)) { $('accErr').textContent = 'Неверный пароль'; return; }
+    saveCurrentProfile();
+  }
+  currentUserName = name;
+  localStorage.setItem('muzik_user', name);
+  loadProfile(name);
+  updateAccountUI();
+  $('plStatus').textContent = register ? 'Аккаунт «' + name + '» создан' : 'Привет, ' + name + '!';
+}
+$('accountBtn').addEventListener('click', function () {
+  updateAccountUI();
+  $('accountModal').classList.add('open');
+});
+$('accCancelBtn').addEventListener('click', function () { $('accountModal').classList.remove('open'); });
+$('accCloseBtn').addEventListener('click', function () { $('accountModal').classList.remove('open'); });
+$('accLoginBtn').addEventListener('click', function () { doLogin(false); });
+$('accRegBtn').addEventListener('click', function () { doLogin(true); });
+$('accLogoutBtn').addEventListener('click', function () {
+  saveCurrentProfile();
+  currentUserName = null;
+  localStorage.removeItem('muzik_user');
+  updateAccountUI();
+  $('plStatus').textContent = 'Вышел из аккаунта';
+});
+$('accountModal').addEventListener('click', function (e) { if (e.target === this) this.classList.remove('open'); });
 
 function removeTrack(i) {
   playlist.splice(i, 1);
@@ -1200,14 +1342,5 @@ $('tabList').addEventListener('click', function () {
   $('tabPlayer').classList.remove('active');
 });
 
-// Готово при старте: встроенная подборка сразу в плейлисте
-loadBuiltins();
-
-// helpers
-function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-function fmt(sec) { if (!sec || sec < 0) return ''; sec = Math.round(sec); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
-
-})();
-</script>
-</body>
-</html>
+// Готово при старте: если вошёл в аккаунт — сразу его плейлист, иначе встроенная подборка
+if (currentUserName && getUsers()[currentUserName] && (getUsers()[currentUserName].playlist || []).length) {
