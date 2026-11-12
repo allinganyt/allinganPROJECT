@@ -766,9 +766,20 @@ function stopPlayback() {
 
 // ---------- playback ----------
 let scWidget = null;      // SC.Widget для текущего SoundCloud-трека
+let playSeq = 0;          // защита от гонок при быстром переключении треков
+
+// Аккуратно убиваем старое аудио: без событий ошибки/паузы, которые ломают новый трек
+function detachAudio(a) {
+  if (!a) return;
+  try { a.pause(); } catch (e) {}
+  a.onended = null; a.onerror = null; a.onplay = null; a.onpause = null;
+  a.removeAttribute('src');
+  try { a.load(); } catch (e) {}
+}
 
 async function playTrack(i) {
   if (i < 0 || i >= playlist.length) return;
+  const token = ++playSeq;
   currentIndex = i;
   const t = playlist[i];
   $('nowTitle').textContent = t.title;
@@ -788,6 +799,7 @@ async function playTrack(i) {
   // Встроенный трек без ссылки: при первом запуске находим на SoundCloud
   if (t.platform === 'builtin') {
     const found = await searchSoundcloud(t.query);
+    if (token !== playSeq) return; // уже переключили трек, результат не нужен
     if (found && found.length) {
       playlist[i] = Object.assign({}, t, found[0]);
       renderPlaylist();
@@ -800,7 +812,9 @@ async function playTrack(i) {
 
   const box = $('videoBox');
   box.innerHTML = '';
-  if (currentAudio) { try { currentAudio.pause(); } catch (e) {} currentAudio = null; }
+  detachAudio(currentAudio);
+  currentAudio = null;
+  scWidget = null;
 
   if (t.platform === 'youtube') {
     scWidget = null;
@@ -812,6 +826,7 @@ async function playTrack(i) {
     // 1) Пытаемся получить прямой mp3-поток по ссылке и сыграть его сами
     $('plStatus').textContent = 'Запускаю «' + t.title + '»…';
     const stream = await resolveScStream(t.url);
+    if (token !== playSeq) return; // пока качался поток, включили другой трек — выходим
     if (stream && stream.url) {
       scWidget = null;
       box.classList.add('column');
@@ -831,14 +846,16 @@ async function playTrack(i) {
       box.appendChild(cap);
       box.appendChild(audio);
       currentAudio = audio;
-      audio.addEventListener('ended', onTrackEnd);
-      audio.addEventListener('play', function () { isPlaying = true; updatePlayIcon(); failStreak = 0; });
-      audio.addEventListener('pause', function () { isPlaying = false; updatePlayIcon(); });
+      audio.addEventListener('ended', function () { if (token === playSeq) onTrackEnd(); });
+      audio.addEventListener('play', function () { if (token !== playSeq) return; isPlaying = true; updatePlayIcon(); failStreak = 0; });
+      audio.addEventListener('pause', function () { if (token !== playSeq) return; isPlaying = false; updatePlayIcon(); });
       // Битый трек: показываем, помечаем и автоматически идём дальше
       audio.addEventListener('error', function () {
+        if (token !== playSeq) return; // старый поток убит при переключении — это не ошибка
         markUnavailable(t);
       });
       try { await audio.play(); } catch (e) { /* пользователь тапнет play в самом плеере */ }
+      if (token !== playSeq) return;
       $('plStatus').textContent = 'Играет прямой поток';
       startViz('simulated');
       isPlaying = true;
