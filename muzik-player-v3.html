@@ -671,7 +671,7 @@ function renderResults(items, status) {
 // ---------- playlist ----------
 // Встроенная подборка: 20 треков с конкретными ссылками на SoundCloud
 const BUILTIN_TRACKS = [
-  { title: '1000-7', artist: 'fem.love', url: 'https://soundcloud.com/femlove/1000-7' },
+  { title: '1000-7', artist: 'fem.love', url: 'https://soundcloud.com/femlove/1000-7', alts: ['https://soundcloud.com/mr-fox-655736256/fem-love-1000-7', 'https://soundcloud.com/user-285087410/femlove-1000-7-cover-remix'] },
   { title: 'type london', artist: 'ONDA ANDAR', url: 'https://soundcloud.com/onda_andar/type-london' },
   { title: 'Назад в кресты', artist: 'dabbackwood', url: 'https://soundcloud.com/dabbackwood-sc/nazad-v-kresty' },
   { title: 'Седая ночь', artist: 'Шаман', url: 'https://soundcloud.com/snd4u/shaman-sedaya-noch-grey-night' },
@@ -825,8 +825,15 @@ async function playTrack(i) {
   } else if (t.platform === 'soundcloud') {
     // 1) Пытаемся получить прямой mp3-поток по ссылке и сыграть его сами
     $('plStatus').textContent = 'Запускаю «' + t.title + '»…';
-    const stream = await resolveScStream(t.url);
-    if (token !== playSeq) return; // пока качался поток, включили другой трек — выходим
+    // Пробуем основной permalink и запасные (alts), пока не получим живой поток
+    let stream = null;
+    const candidates = [t.url].concat(t.alts || []);
+    for (let ci = 0; ci < candidates.length; ci++) {
+      stream = await resolveScStream(candidates[ci]);
+      if (token !== playSeq) return; // включили другой трек, выходим
+      if (stream && stream.url) break;
+      stream = null;
+    }
     if (stream && stream.url) {
       scWidget = null;
       box.classList.add('column');
