@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Muzik player</title>
+<!-- Официальный SoundCloud Widget API: надёжный запуск/пауза треков -->
+<script src="https://w.soundcloud.com/player/api.js"></script>
 <style>
 :root {
   --accent: #3b82f6;
@@ -570,6 +572,7 @@ function removeTrack(i) {
 }
 
 function stopPlayback() {
+  scWidget = null;
   $('videoBox').innerHTML = '';
   const ph = $('placeholder');
   $('videoBox').appendChild(ph);
@@ -581,17 +584,19 @@ function stopPlayback() {
 }
 
 // ---------- playback ----------
+let scWidget = null;      // SC.Widget для текущего SoundCloud-трека
+
 async function playTrack(i) {
   if (i < 0 || i >= playlist.length) return;
   currentIndex = i;
   const t = playlist[i];
   $('nowTitle').textContent = t.title;
   $('nowArtist').textContent = t.artist;
+  $('plStatus').textContent = 'Запускаю «' + t.title + '»…';
+  $('plStatus').style.color = '';
 
-  // Встроенный трек: при первом запуске находим его на SoundCloud и подменяем
+  // Встроенный трек без ссылки: при первом запуске находим на SoundCloud
   if (t.platform === 'builtin') {
-    $('plStatus').textContent = 'Ищу «' + t.title + '» на SoundCloud…';
-    $('plStatus').style.color = '';
     const found = await searchSoundcloud(t.query);
     if (found && found.length) {
       playlist[i] = Object.assign({}, t, found[0]);
@@ -607,11 +612,24 @@ async function playTrack(i) {
   box.innerHTML = '';
 
   if (t.platform === 'youtube') {
+    scWidget = null;
     box.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + t.videoId + '?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
     startViz('simulated');
     isPlaying = true;
   } else if (t.platform === 'soundcloud') {
-    box.innerHTML = '<iframe src="https://w.soundcloud.com/player/?url=' + encodeURIComponent(t.url) + '&auto_play=true&color=%233b82f6" allow="autoplay"></iframe>';
+    box.innerHTML = '<iframe src="https://w.soundcloud.com/player/?url=' + encodeURIComponent(t.url) + '&auto_play=true&color=%233b82f6&visual=true" allow="autoplay"></iframe>';
+    // Надёжный запуск через официальный Widget API
+    if (window.SC && window.SC.Widget) {
+      try {
+        scWidget = window.SC.Widget(box.querySelector('iframe'));
+        scWidget.bind(window.SC.Widget.Events.READY, function () {
+          scWidget.play();
+        });
+        scWidget.bind(window.SC.Widget.Events.PLAY, function () { isPlaying = true; updatePlayIcon(); });
+        scWidget.bind(window.SC.Widget.Events.PAUSE, function () { isPlaying = false; updatePlayIcon(); });
+        scWidget.bind(window.SC.Widget.Events.FINISH, function () { nextTrack(); });
+      } catch (e) { scWidget = null; }
+    } else { scWidget = null; }
     startViz('simulated');
     isPlaying = true;
   } else if (t.platform === 'local') {
@@ -637,8 +655,16 @@ function togglePlay() {
   if (t.platform === 'local' && currentAudio) {
     if (currentAudio.paused) { currentAudio.play(); isPlaying = true; }
     else { currentAudio.pause(); isPlaying = false; }
+  } else if (t.platform === 'soundcloud' && scWidget) {
+    // Управляем плеером SoundCloud по-настоящему
+    scWidget.isPaused(function (paused) {
+      if (paused) { scWidget.play(); isPlaying = true; }
+      else { scWidget.pause(); isPlaying = false; }
+      updatePlayIcon();
+    });
+    return;
   } else {
-    isPlaying = !isPlaying; // для iframe управляет сам YouTube/SoundCloud плеер
+    isPlaying = !isPlaying; // для YouTube iframe управляет сам YouTube-плеер
   }
   updatePlayIcon();
 }
