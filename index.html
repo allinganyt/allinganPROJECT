@@ -359,7 +359,7 @@ button, .item, .fab { touch-action: manipulation; }
 <div class="topbar">
   <div class="logo"><svg viewBox="0 0 512 512" style="width:100%;height:100%;border-radius:9px;display:block"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c084fc"/><stop offset=".5" stop-color="#a855f7"/><stop offset="1" stop-color="#ec4899"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#lg1)"/><path d="M-40 380 C120 300 80 500 240 420 S420 300 560 360" stroke="#fff" stroke-width="70" fill="none" opacity=".3" stroke-linecap="round"/><path d="M-40 130 C100 50 160 210 300 130 S460 70 560 150" stroke="#fff" stroke-width="40" fill="none" opacity=".22" stroke-linecap="round"/><circle cx="256" cy="216" r="112" fill="#0f0f14"/><path d="M220 162 L322 216 L220 270 Z" fill="#fff"/><circle cx="348" cy="290" r="15" fill="#fff"/><rect x="360" y="212" width="8" height="82" fill="#fff"/></svg></div>
   <span class="brand">Muzik player</span>
-  <span class="badge">v4.7</span>
+  <span class="badge">v4.6</span>
   <div class="searchwrap">
     <input id="q" type="search" placeholder="Название или ссылка…" autocomplete="off">
     <select id="engine">
@@ -766,6 +766,13 @@ async function doSearch() {
   const ytId = parseYouTubeId(query);
   if (ytId) { addTrack({ title: 'YouTube • ' + ytId, artist: 'по ссылке', platform: 'youtube', videoId: ytId }); return; }
   if (query.indexOf('soundcloud.com') !== -1) { addTrack({ title: 'SoundCloud трек', artist: 'по ссылке', platform: 'soundcloud', url: query }); return; }
+  // прямая ссылка на аудиофайл (mp3/m4a/ogg/wav) — играет даже там, где SoundCloud заблокирован
+  if (/^https?:\/\/.+\.(mp3|m4a|ogg|wav)(\?.*)?$/i.test(query)) {
+    var fname = query.split('/').pop().split('?')[0].replace(/\.[^.]+$/, '');
+    try { fname = decodeURIComponent(fname); } catch (e) {}
+    addTrack({ title: fname || 'Аудио по ссылке', artist: 'прямой файл', platform: 'direct', url: query });
+    return;
+  }
 
   // 2. Поиск по словам на выбранной платформе
   renderResults(null, 'Ищу «' + query + '» на ' + (engine === 'soundcloud' ? 'SoundCloud' : 'YouTube') + '…');
@@ -894,6 +901,14 @@ const BUILTIN_TRACKS = [
   { title: 'In the End', artist: 'LINKIN PARK', url: 'https://soundcloud.com/linkinpark/in-the-end' }
 ];
 
+// Треки, которые играют в РФ без VPN: общественное достояние, файлы Викисклада
+const COMMONS_BASE = 'https://commons.wikimedia.org/wiki/Special:FilePath/';
+const DIRECT_TRACKS = [
+  { title: 'The Entertainer', artist: 'Scott Joplin', file: 'The_Entertainer_-_Scott_Joplin.ogg' },
+  { title: 'Für Elise', artist: 'Ludwig van Beethoven', file: 'Fur_Elise.ogg' },
+  { title: 'Toccata и фуга ре минор', artist: 'J.S. Bach', file: 'Toccata_and_Fugue_in_D_minor,_BWV_565.ogg' }
+];
+
 function loadBuiltins() {
   playlist = BUILTIN_TRACKS.map(function (t, i) {
     return {
@@ -901,8 +916,19 @@ function loadBuiltins() {
       title: t.title,
       artist: t.artist,
       platform: 'soundcloud',
-      url: t.url
+      url: t.url,
+      alts: t.alts || null
     };
+  });
+  // общественное достояние: играет без VPN
+  DIRECT_TRACKS.forEach(function (t) {
+    playlist.push({
+      id: 'd' + t.file,
+      title: t.title,
+      artist: t.artist,
+      platform: 'direct',
+      url: COMMONS_BASE + encodeURIComponent(t.file)
+    });
   });
   currentIndex = -1;
   renderPlaylist();
@@ -931,16 +957,18 @@ function renderPlaylist() {
     const el = document.createElement('div');
     el.className = 'item' + (i === currentIndex ? ' active' : '') + (t.unavailable ? ' unavailable' : '');
     el.innerHTML =
-      '<div class="ic ' + (t.platform === 'youtube' ? 'yt' : (t.platform === 'builtin' ? '' : 'sc')) + '">' + (t.platform === 'youtube' ? '▶' : (t.platform === 'builtin' ? '★' : (t.platform === 'bundled' ? '📀' : '☁'))) + '</div>' +
+      '<div class="ic ' + (t.platform === 'youtube' ? 'yt' : (t.platform === 'builtin' ? '' : 'sc')) + '">' + (t.platform === 'youtube' ? '▶' : (t.platform === 'builtin' ? '★' : ((t.platform === 'bundled' || t.platform === 'direct' || t.platform === 'local') ? '📀' : '☁'))) + '</div>' +
       '<div class="meta"><div class="t">' + esc(t.title) + (isLiked(t.url) ? '<span class="like-mark">♥</span>' : '') + '</div><div class="a">' + esc(t.artist) + '</div></div>';
     el.addEventListener('click', function () { playTrack(i); });
-    const dl = document.createElement('button');
-    dl.className = 'dl' + (t.downloaded ? ' done' : '');
-    dl.type = 'button';
-    dl.textContent = t.downloaded ? '📥' : '⬇';
-    dl.title = t.downloaded ? 'Скачан — играет офлайн' : 'Скачать на устройство';
-    dl.addEventListener('click', function (e) { e.stopPropagation(); downloadTrack(t); });
-    el.appendChild(dl);
+    if (t.platform === 'soundcloud') {
+      const dl = document.createElement('button');
+      dl.className = 'dl' + (t.downloaded ? ' done' : '');
+      dl.type = 'button';
+      dl.textContent = t.downloaded ? '📥' : '⬇';
+      dl.title = t.downloaded ? 'Скачан — играет офлайн' : 'Скачать на устройство';
+      dl.addEventListener('click', function (e) { e.stopPropagation(); downloadTrack(t); });
+      el.appendChild(dl);
+    }
     const x = document.createElement('button');
     x.className = 'x';
     x.type = 'button';
@@ -1229,24 +1257,3 @@ async function playTrack(i) {
       box.innerHTML = '';
       const cap = document.createElement('div');
       cap.className = 'placeholder';
-      cap.innerHTML = '<div style="font-weight:700;color:#f1f5f9;margin-bottom:10px">' + esc(t.title) + (offline ? ' 📥' : '') + '</div><div style="margin-bottom:10px">' + esc(t.artist) + ' • ' + (offline ? 'на устройстве' : 'SoundCloud') + '</div>';
-      box.appendChild(cap);
-      box.appendChild(audio);
-      currentAudio = audio;
-      audio.addEventListener('ended', function () { if (token === playSeq) onTrackEnd(); });
-      audio.addEventListener('play', function () { if (token !== playSeq) return; isPlaying = true; updatePlayIcon(); failStreak = 0; });
-      audio.addEventListener('pause', function () { if (token !== playSeq) return; isPlaying = false; updatePlayIcon(); });
-      // Битый трек: показываем, помечаем и автоматически идём дальше
-      audio.addEventListener('error', function () {
-        if (token !== playSeq) return; // старый поток убит при переключении — это не ошибка
-        markUnavailable(t);
-      });
-      try { await audio.play(); } catch (e) { /* пользователь тапнет play в самом плеере */ }
-      if (token !== playSeq) return;
-      $('plStatus').textContent = offline ? '📥 Играет с устройства — интернет не нужен' : 'Играет прямой поток';
-      startViz('simulated');
-      isPlaying = true;
-    } else {
-      // 2) Фолбэк: официальный виджет SoundCloud
-      $('plStatus').textContent = 'Прямой поток недоступен, включаю виджет…';
-      box.classList.remove('column');
