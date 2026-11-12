@@ -102,6 +102,7 @@ button { cursor: pointer; }
 }
 .video { width: 100%; aspect-ratio: 16/9; border-radius: 14px; background: #000; border: 1px solid var(--border);
   overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative; }
+.video.column { flex-direction: column; justify-content: center; padding: 16px; }
 .video iframe, .video video { width: 100%; height: 100%; border: none; display: block; }
 .video .placeholder { color: var(--muted); font-size: 13px; text-align: center; padding: 14px; }
 .video .placeholder svg { width: 46px; height: 46px; fill: var(--accent); opacity: .8; margin-bottom: 8px; }
@@ -349,13 +350,89 @@ const PIPED_INSTANCES = [
   'https://api.piped.private.coffee'
 ];
 
-// Публичные client_id веб-плеера SoundCloud (могут отзываться; пробуем по очереди)
+// Публичные client_id веб-плеера SoundCloud (могут отзываться — тогда добываем свежий сами)
 const SC_CLIENT_IDS = [
   'iZIs9mchLcO5IuupZ066Y7L6IdyVU1Sv',
   'a3e059610d7fdce9627b7607d4f152c1',
   'JObvCezWVLmcT0gZfmkNdfv9AH6piZtW'
 ];
-let scWorkingId = null;
+let scWorkingId = localStorage.getItem('sc_cid') || null;
+
+// Публичные CORS-прокси: через них читаем soundcloud.com и достаём актуальный client_id
+const CORS_PROXIES = [
+  function (u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); },
+  function (u) { return 'https://corsproxy.io/?url=' + encodeURIComponent(u); }
+];
+
+async function fetchViaProxy(url, timeoutMs) {
+  for (const make of CORS_PROXIES) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(function () { ctrl.abort(); }, timeoutMs || 8000);
+      const r = await fetch(make(url), { signal: ctrl.signal });
+      clearTimeout(t);
+      if (r.ok) return await r.text();
+    } catch (e) { /* следующий прокси */ }
+  }
+  return null;
+}
+
+async function scIdWorks(id) {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(function () { ctrl.abort(); }, 6000);
+    const r = await fetch('https://api-v2.soundcloud.com/tracks?ids=293923233&client_id=' + id, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!r.ok) return false;
+    const d = await r.json();
+    return Array.isArray(d) && d.length > 0;
+  } catch (e) { return false; }
+}
+
+// Добываем рабочий client_id: сначала кешированный/известные, иначе вытаскиваем из JS-бандлов soundcloud.com
+async function getScClientId() {
+  if (scWorkingId && await scIdWorks(scWorkingId)) return scWorkingId;
+  localStorage.removeItem('sc_cid');
+  for (const id of SC_CLIENT_IDS) {
+    if (await scIdWorks(id)) { scWorkingId = id; localStorage.setItem('sc_cid', id); return id; }
+  }
+  const html = await fetchViaProxy('https://soundcloud.com/', 10000);
+  if (html) {
+    const scripts = [];
+    const re = /https:\/\/a\.sndcdn\.com\/assets\/[^"'\s]+?\.js/g;
+    let m; while ((m = re.exec(html)) !== null) scripts.push(m[0]);
+    const uniq = scripts.slice(0, 10);
+    for (const js of uniq) {
+      const code = await fetchViaProxy(js, 10000);
+      if (!code) continue;
+      const cm = code.match(/client_id\s*[:=]\s*"([A-Za-z0-9]{20,40})"/);
+      if (cm && await scIdWorks(cm[1])) {
+        scWorkingId = cm[1];
+        localStorage.setItem('sc_cid', cm[1]);
+        return cm[1];
+      }
+    }
+  }
+  return null;
+}
+
+// Ссылка на трек SoundCloud -> прямой mp3-поток
+async function resolveScStream(permalink) {
+  const cid = await getScClientId();
+  if (!cid) return null;
+  try {
+    const r = await fetch('https://api-v2.soundcloud.com/resolve?url=' + encodeURIComponent(permalink) + '&client_id=' + cid);
+    if (!r.ok) return null;
+    const track = await r.json();
+    if (!track || !track.media || !track.media.transcodings || !track.media.transcodings.length) return null;
+    const prog = track.media.transcodings.filter(function (x) { return x.format && x.format.protocol === 'progressive'; })[0];
+    if (!prog) return null;
+    const r2 = await fetch(prog.url + '?client_id=' + cid);
+    if (!r2.ok) return null;
+    const d = await r2.json();
+    return d.url || null;
+  } catch (e) { return null; }
+}
 
 function parseYouTubeId(url) {
   const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
@@ -364,30 +441,25 @@ function parseYouTubeId(url) {
 
 // Поиск по SoundCloud: настоящие треки с обложками и длительностью
 async function searchSoundcloud(query) {
-  const ids = scWorkingId ? [scWorkingId].concat(SC_CLIENT_IDS.filter(i => i !== scWorkingId)) : SC_CLIENT_IDS;
-  for (const cid of ids) {
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(function () { ctrl.abort(); }, 7000);
-      const r = await fetch('https://api-v2.soundcloud.com/search/tracks?q=' + encodeURIComponent(query) + '&client_id=' + cid + '&limit=20', { signal: ctrl.signal });
-      clearTimeout(t);
-      if (!r.ok) continue;
-      const d = await r.json();
-      if (d.collection && d.collection.length) {
-        scWorkingId = cid;
-        return d.collection.map(function (it) {
-          return {
-            title: it.title,
-            artist: it.user && it.user.username ? it.user.username : 'SoundCloud',
-            platform: 'soundcloud',
-            url: it.permalink_url,
-            duration: (it.duration || 0) / 1000,
-            thumb: it.artwork_url ? it.artwork_url.replace('-large', '-t120x120') : null
-          };
-        });
-      }
-    } catch (e) { /* следующий ключ */ }
-  }
+  const cid = await getScClientId();
+  if (!cid) return null;
+  try {
+    const r = await fetch('https://api-v2.soundcloud.com/search/tracks?q=' + encodeURIComponent(query) + '&client_id=' + cid + '&limit=20');
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (d.collection && d.collection.length) {
+      return d.collection.map(function (it) {
+        return {
+          title: it.title,
+          artist: it.user && it.user.username ? it.user.username : 'SoundCloud',
+          platform: 'soundcloud',
+          url: it.permalink_url,
+          duration: (it.duration || 0) / 1000,
+          thumb: it.artwork_url ? it.artwork_url.replace('-large', '-t120x120') : null
+        };
+      });
+    }
+  } catch (e) { /* промах */ }
   return null;
 }
 
@@ -610,28 +682,57 @@ async function playTrack(i) {
 
   const box = $('videoBox');
   box.innerHTML = '';
+  if (currentAudio) { try { currentAudio.pause(); } catch (e) {} currentAudio = null; }
 
   if (t.platform === 'youtube') {
     scWidget = null;
+    box.classList.remove('column');
     box.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + t.videoId + '?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
     startViz('simulated');
     isPlaying = true;
   } else if (t.platform === 'soundcloud') {
-    box.innerHTML = '<iframe src="https://w.soundcloud.com/player/?url=' + encodeURIComponent(t.url) + '&auto_play=true&color=%233b82f6&visual=true" allow="autoplay"></iframe>';
-    // Надёжный запуск через официальный Widget API
-    if (window.SC && window.SC.Widget) {
-      try {
-        scWidget = window.SC.Widget(box.querySelector('iframe'));
-        scWidget.bind(window.SC.Widget.Events.READY, function () {
-          scWidget.play();
-        });
-        scWidget.bind(window.SC.Widget.Events.PLAY, function () { isPlaying = true; updatePlayIcon(); });
-        scWidget.bind(window.SC.Widget.Events.PAUSE, function () { isPlaying = false; updatePlayIcon(); });
-        scWidget.bind(window.SC.Widget.Events.FINISH, function () { nextTrack(); });
-      } catch (e) { scWidget = null; }
-    } else { scWidget = null; }
-    startViz('simulated');
-    isPlaying = true;
+    // 1) Пытаемся получить прямой mp3-поток по ссылке и сыграть его сами
+    $('plStatus').textContent = 'Запускаю «' + t.title + '»…';
+    const streamUrl = await resolveScStream(t.url);
+    if (streamUrl) {
+      scWidget = null;
+      box.classList.add('column');
+      const audio = new Audio(streamUrl);
+      audio.controls = true;
+      audio.style.width = '100%';
+      audio.style.height = '54px';
+      audio.volume = $('volume').value / 100;
+      box.innerHTML = '';
+      const cap = document.createElement('div');
+      cap.className = 'placeholder';
+      cap.innerHTML = '<div style="font-weight:700;color:#f1f5f9;margin-bottom:10px">' + esc(t.title) + '</div><div style="margin-bottom:10px">' + esc(t.artist) + ' • SoundCloud</div>';
+      box.appendChild(cap);
+      box.appendChild(audio);
+      currentAudio = audio;
+      audio.addEventListener('ended', nextTrack);
+      audio.addEventListener('play', function () { isPlaying = true; updatePlayIcon(); });
+      audio.addEventListener('pause', function () { isPlaying = false; updatePlayIcon(); });
+      try { await audio.play(); } catch (e) { /* пользователь тапнет play в самом плеере */ }
+      $('plStatus').textContent = 'Играет прямой поток';
+      startViz('simulated');
+      isPlaying = true;
+    } else {
+      // 2) Фолбэк: официальный виджет SoundCloud
+      $('plStatus').textContent = 'Прямой поток недоступен, включаю виджет…';
+      box.classList.remove('column');
+      box.innerHTML = '<iframe src="https://w.soundcloud.com/player/?url=' + encodeURIComponent(t.url) + '&auto_play=true&color=%233b82f6&visual=true" allow="autoplay"></iframe>';
+      if (window.SC && window.SC.Widget) {
+        try {
+          scWidget = window.SC.Widget(box.querySelector('iframe'));
+          scWidget.bind(window.SC.Widget.Events.READY, function () { scWidget.play(); });
+          scWidget.bind(window.SC.Widget.Events.PLAY, function () { isPlaying = true; updatePlayIcon(); });
+          scWidget.bind(window.SC.Widget.Events.PAUSE, function () { isPlaying = false; updatePlayIcon(); });
+          scWidget.bind(window.SC.Widget.Events.FINISH, function () { nextTrack(); });
+        } catch (e) { scWidget = null; }
+      } else { scWidget = null; }
+      startViz('simulated');
+      isPlaying = true;
+    }
   } else if (t.platform === 'local') {
     const audio = new Audio(t.objectUrl);
     audio.volume = $('volume').value / 100;
