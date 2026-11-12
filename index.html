@@ -290,6 +290,17 @@ button, .item, .fab { touch-action: manipulation; }
   .stage { padding: 10px; gap: 10px; }
   .searchwrap .btn { padding: 9px 12px; }
 }
+/* ===== Фон: жидкий мрамор, анимируется и тонируется в цвет темы ===== */
+/* Фон: мрамор растеризуется один раз в data-URL (быстро), дрейф — чистый transform на GPU */
+#bgfx { position: fixed; inset: -22%; z-index: 0; pointer-events: none; opacity: .45;
+  background-size: cover; background-position: center; transform-origin: 50% 50%;
+  animation: bgdrift1 52s ease-in-out infinite alternate; will-change: transform; }
+@keyframes bgdrift1 { from { transform: rotate(0deg) scale(1); } to { transform: rotate(9deg) scale(1.18); } }
+#bgtint { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: var(--accent); opacity: .17; mix-blend-mode: color; }
+#bgglow { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 0%, var(--accent-glow), transparent 60%); opacity: .25; }
+@media (max-width: 860px) { #bgfx { opacity: .38; } }
+@media (prefers-reduced-motion: reduce) { #bgfx { animation: none; } }
+
 /* ===== Поиск: кнопка снизу + выезжающее меню ===== */
 .fab { position: fixed; right: 14px; bottom: 86px; z-index: 50; width: 54px; height: 54px;
   border-radius: 50%; background: var(--accent); color: #fff; border: none; font-size: 22px;
@@ -326,6 +337,9 @@ button, .item, .fab { touch-action: manipulation; }
 </style>
 </head>
 <body>
+<div id="bgfx" aria-hidden="true"></div>
+<div id="bgtint" aria-hidden="true"></div>
+<div id="bgglow" aria-hidden="true"></div>
 <noscript><div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#ef4444;color:#fff;padding:10px;font-weight:700">JavaScript отключён в браузере — включи его, плеер без него не работает.</div></noscript>
 <div id="errBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#ef4444;color:#fff;padding:10px;font-weight:700;font-size:13px;word-break:break-all"></div>
 <div id="jsOk" style="display:none">js-ok</div>
@@ -359,7 +373,7 @@ button, .item, .fab { touch-action: manipulation; }
 <div class="topbar">
   <div class="logo"><svg viewBox="0 0 512 512" style="width:100%;height:100%;border-radius:9px;display:block"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c084fc"/><stop offset=".5" stop-color="#a855f7"/><stop offset="1" stop-color="#ec4899"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#lg1)"/><path d="M-40 380 C120 300 80 500 240 420 S420 300 560 360" stroke="#fff" stroke-width="70" fill="none" opacity=".3" stroke-linecap="round"/><path d="M-40 130 C100 50 160 210 300 130 S460 70 560 150" stroke="#fff" stroke-width="40" fill="none" opacity=".22" stroke-linecap="round"/><circle cx="256" cy="216" r="112" fill="#0f0f14"/><path d="M220 162 L322 216 L220 270 Z" fill="#fff"/><circle cx="348" cy="290" r="15" fill="#fff"/><rect x="360" y="212" width="8" height="82" fill="#fff"/></svg></div>
   <span class="brand">Muzik player</span>
-  <span class="badge">v4.6</span>
+  <span class="badge">v5.1</span>
   <div class="searchwrap">
     <input id="q" type="search" placeholder="Название или ссылка…" autocomplete="off">
     <select id="engine">
@@ -412,7 +426,7 @@ button, .item, .fab { touch-action: manipulation; }
 
   <div class="side">
     <h3>Встроенная подборка</h3>
-    <button class="btn" id="builtinBtn" type="button" style="width:100%">🎵 Загрузить 20 треков</button>
+    <button class="btn" id="builtinBtn" type="button" style="width:100%">🎵 Вернуть встроенную подборку</button>
     <h3 style="margin-top:8px">Результаты поиска</h3>
     <div class="list" id="results"><div class="empty">Здесь появятся найденные треки</div></div>
     <h3 style="margin-top:8px">Плейлист</h3>
@@ -923,12 +937,13 @@ const DIRECT_TRACKS = [
 ];
 
 function loadBuiltins() {
-  // автоподборку больше не грузим: без VPN она всё равно мёртвая.
-  // Плеер стартует пустым: вставь ссылку на трек или залей свою музыку в папку music в репозитории.
-  playlist = [];
+  // Встроенная подборка: сразу в плейлист (без автозапуска). Без VPN треки SoundCloud могут не играть.
+  playlist = BUILTIN_TRACKS.map(function (t, i) {
+    return { id: 'b' + i, title: t.title, artist: t.artist, url: t.url, alts: t.alts, platform: 'soundcloud' };
+  });
   currentIndex = -1;
   renderPlaylist();
-  $('plStatus').textContent = 'Плейлист пуст: вставь ссылку на трек (🔍) или залей свою музыку';
+  $('plStatus').textContent = 'Встроенная подборка: ' + playlist.length + ' треков. Без VPN может не играть — тогда 🔍 или своя музыка.';
 }
 
 function addTrack(track) {
@@ -1223,30 +1238,3 @@ async function playTrack(i) {
     isPlaying = true;
   } else if (t.platform === 'soundcloud') {
     // 1) Пытаемся получить прямой mp3-поток по ссылке и сыграть его сами
-    $('plStatus').textContent = 'Запускаю «' + t.title + '»…';
-    // 0) Скачанный трек: играем прямо с устройства, интернет не нужен
-    let offline = false;
-    let stream = await getCachedUrl(t);
-    if (token !== playSeq) return;
-    if (stream) { stream = { url: stream, art: null }; offline = true; }
-    // 1) Иначе: пробуем основной permalink и запасные (alts), пока не получим живой поток
-    if (!offline) {
-      const candidates = [t.url].concat(t.alts || []);
-      for (let ci = 0; ci < candidates.length; ci++) {
-        stream = await resolveScStream(candidates[ci]);
-        if (token !== playSeq) return; // включили другой трек, выходим
-        if (stream && stream.url) break;
-        stream = null;
-      }
-    }
-    if (stream && stream.url) {
-      scWidget = null;
-      box.classList.add('column');
-      if (stream.art) {
-        $('expArt').innerHTML = '<img src="' + stream.art + '" alt="">';
-        $('mpArt').innerHTML = '<img src="' + stream.art + '" alt="">';
-      }
-      const audio = new Audio(stream.url);
-      audio.controls = true;
-      audio.style.width = '100%';
-      audio.style.height = '54px';
