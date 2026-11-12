@@ -359,7 +359,7 @@ button, .item, .fab { touch-action: manipulation; }
 <div class="topbar">
   <div class="logo"><svg viewBox="0 0 512 512" style="width:100%;height:100%;border-radius:9px;display:block"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c084fc"/><stop offset=".5" stop-color="#a855f7"/><stop offset="1" stop-color="#ec4899"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#lg1)"/><path d="M-40 380 C120 300 80 500 240 420 S420 300 560 360" stroke="#fff" stroke-width="70" fill="none" opacity=".3" stroke-linecap="round"/><path d="M-40 130 C100 50 160 210 300 130 S460 70 560 150" stroke="#fff" stroke-width="40" fill="none" opacity=".22" stroke-linecap="round"/><circle cx="256" cy="216" r="112" fill="#0f0f14"/><path d="M220 162 L322 216 L220 270 Z" fill="#fff"/><circle cx="348" cy="290" r="15" fill="#fff"/><rect x="360" y="212" width="8" height="82" fill="#fff"/></svg></div>
   <span class="brand">Muzik player</span>
-  <span class="badge">v4.6</span>
+  <span class="badge">v4.7</span>
   <div class="searchwrap">
     <input id="q" type="search" placeholder="Название или ссылка…" autocomplete="off">
     <select id="engine">
@@ -931,7 +931,7 @@ function renderPlaylist() {
     const el = document.createElement('div');
     el.className = 'item' + (i === currentIndex ? ' active' : '') + (t.unavailable ? ' unavailable' : '');
     el.innerHTML =
-      '<div class="ic ' + (t.platform === 'youtube' ? 'yt' : (t.platform === 'builtin' ? '' : 'sc')) + '">' + (t.platform === 'youtube' ? '▶' : (t.platform === 'builtin' ? '★' : '☁')) + '</div>' +
+      '<div class="ic ' + (t.platform === 'youtube' ? 'yt' : (t.platform === 'builtin' ? '' : 'sc')) + '">' + (t.platform === 'youtube' ? '▶' : (t.platform === 'builtin' ? '★' : (t.platform === 'bundled' ? '📀' : '☁'))) + '</div>' +
       '<div class="meta"><div class="t">' + esc(t.title) + (isLiked(t.url) ? '<span class="like-mark">♥</span>' : '') + '</div><div class="a">' + esc(t.artist) + '</div></div>';
     el.addEventListener('click', function () { playTrack(i); });
     const dl = document.createElement('button');
@@ -965,7 +965,7 @@ function hashPass(s) {
   return 'h' + h.toString(36);
 }
 function serializePlaylist() {
-  return playlist.map(function (t) {
+  return playlist.filter(function (t) { return t.platform !== 'bundled'; }).map(function (t) {
     var o = { title: t.title, artist: t.artist, platform: t.platform };
     ['url', 'alts', 'videoId', 'thumb', 'query', 'duration'].forEach(function (k) { if (t[k]) o[k] = t[k]; });
     return o;
