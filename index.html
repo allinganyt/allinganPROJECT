@@ -280,6 +280,21 @@ body.expanded .expanded-player { display: flex; }
   .stage { padding: 10px; gap: 10px; }
   .searchwrap .btn { padding: 9px 12px; }
 }
+/* ===== Поиск: кнопка снизу + выезжающее меню ===== */
+.fab { position: fixed; right: 14px; bottom: 86px; z-index: 50; width: 54px; height: 54px;
+  border-radius: 50%; background: var(--accent); color: #fff; border: none; font-size: 22px;
+  cursor: pointer; box-shadow: 0 6px 22px var(--accent-glow); }
+.sheet { width: min(560px, 96vw); max-height: 86vh; display: flex; flex-direction: column;
+  background: #0f172a; border: 1px solid var(--border); border-radius: 18px 18px 0 0; padding: 14px; }
+.modalbg#searchSheet { align-items: flex-end; }
+#searchSheet input, #searchSheet select {
+  width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: #1e293b; color: #f1f5f9; font-size: 15px; box-sizing: border-box; }
+.sheet-row { display: flex; gap: 8px; margin: 10px 0; }
+.sheet-status { font-size: 13px; opacity: .8; margin-bottom: 8px; }
+#searchSheet .list { overflow-y: auto; flex: 1; min-height: 120px; }
+#searchSheet select option { background: #0f172a; }
+
 /* ===== Responsive: phone landscape (short screens) ===== */
 @media (max-height: 500px) and (min-width: 861px) {
   .side { width: 300px; }
@@ -472,6 +487,23 @@ body.expanded .expanded-player { display: flex; }
       </div>
       <p style="opacity:.7;font-size:12px">Плейлист и лайки сохраняются автоматически при каждом изменении.</p>
     </div>
+  </div>
+</div>
+
+<button class="fab" id="searchFab" type="button" aria-label="Поиск">🔍</button>
+<div class="modalbg" id="searchSheet">
+  <div class="sheet">
+    <input id="sQ" type="search" placeholder="Напиши название трека…" autocomplete="off">
+    <div class="sheet-row">
+      <select id="sEngine">
+        <option value="soundcloud">SoundCloud</option>
+        <option value="youtube">YouTube</option>
+      </select>
+      <button class="btn" id="sGo" type="button">Найти</button>
+      <button class="btn ghost" id="sClose" type="button">✕</button>
+    </div>
+    <div class="sheet-status" id="sStatus">Напиши название и жми «Найти». Тапни трек в списке — он сразу заиграет.</div>
+    <div class="list" id="sResults"><div class="empty">Результаты появятся тут</div></div>
   </div>
 </div>
 
@@ -706,9 +738,10 @@ async function searchInvidious(query) {
 }
 
 async function doSearch() {
-  const query = $('q').value.trim();
-  if (!query) return;
-  const engine = $('engine').value;
+  const sheetOpen = $('searchSheet').classList.contains('open');
+  const query = (sheetOpen ? $('sQ').value : $('q').value).trim();
+  if (!query) { if (sheetOpen) $('sStatus').textContent = 'Сначала напиши название 😉'; return; }
+  const engine = sheetOpen ? $('sEngine').value : $('engine').value;
 
   // 1. Прямая ссылка
   const ytId = parseYouTubeId(query);
@@ -787,7 +820,11 @@ async function doSearch() {
 }
 
 function renderResults(items, status) {
-  const box = $('results');
+  renderResultsInto($('results'), items, status);
+  renderResultsInto($('sResults'), items, status);
+  $('sStatus').textContent = status || '';
+}
+function renderResultsInto(box, items, status) {
   box.innerHTML = '';
   if (!items || !items.length) {
     const d = document.createElement('div');
@@ -805,7 +842,10 @@ function renderResults(items, status) {
       ? '<div class="ic"><img src="' + it.thumb + '" alt="" style="width:100%;height:100%;object-fit:cover"></div>'
       : '<div class="ic ' + (it.platform === 'youtube' ? 'yt' : 'sc') + '">' + (it.platform === 'youtube' ? '▶' : '☁') + '</div>';
     el.innerHTML = icon + '<div class="meta"><div class="t">' + esc(it.title) + '</div><div class="a">' + esc(it.artist) + (it.duration ? ' • ' + fmt(it.duration) : '') + '</div></div>';
-    el.addEventListener('click', function () { addTrack(it); });
+    el.addEventListener('click', function () {
+      addTrack(it);
+      $('searchSheet').classList.remove('open'); // тап по треку — закрываем меню и играем
+    });
     box.appendChild(el);
   });
 }
@@ -1286,60 +1326,3 @@ function draw() {
     else { ctx.fillRect(x, h - bh, bw, bh); }
   }
 
-  // Дублируем картинку на большую волну полноэкранного плеера
-  const bigCanvas = $('vizBig');
-  if (bigCanvas && document.body.classList.contains('expanded') && bigCanvas.width > 1) {
-    const bctx = bigCanvas.getContext('2d');
-    const w2 = bigCanvas.width, h2 = bigCanvas.height;
-    bctx.clearRect(0, 0, w2, h2);
-    const gapB = 3 * dpr;
-    const bwB = (w2 - gapB * (bars - 1)) / bars;
-    for (let i = 0; i < bars; i++) {
-      const bh = Math.max(3 * dpr, values[i] * h2);
-      const x = i * (bwB + gapB);
-      const grad = bctx.createLinearGradient(0, h2 - bh, 0, h2);
-      grad.addColorStop(0, accent);
-      grad.addColorStop(1, 'rgba(255,255,255,0.08)');
-      bctx.fillStyle = grad;
-      if (bctx.roundRect) { bctx.beginPath(); bctx.roundRect(x, h2 - bh, bwB, bh, 3 * dpr); bctx.fill(); }
-      else { bctx.fillRect(x, h2 - bh, bwB, bh); }
-    }
-  }
-}
-requestAnimationFrame(draw);
-
-// ---------- local file ----------
-function loadLocalFile(file) {
-  if (!file) return;
-  const url = URL.createObjectURL(file);
-  addTrack({ title: file.name, artist: 'локальный файл', platform: 'local', objectUrl: url });
-  closeSettings();
-}
-
-// ---------- settings ----------
-function openSettings() { $('settingsModal').classList.add('open'); }
-function closeSettings() { $('settingsModal').classList.remove('open'); }
-function saveSettings() {
-  apiKey = $('apiKeyInput').value.trim();
-  lsSet('muzik_apikey', apiKey);
-  closeSettings();
-}
-
-function setTheme(color, glow, el) {
-  document.documentElement.style.setProperty('--accent', color);
-  document.documentElement.style.setProperty('--accent-glow', glow);
-  document.querySelectorAll('.dot').forEach(function (d) { d.classList.remove('active'); });
-  if (el) el.classList.add('active');
-}
-
-// ---------- event wiring: только addEventListener, без inline onclick ----------
-$('searchBtn').addEventListener('click', doSearch);
-$('q').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSearch(); });
-$('playBtn').addEventListener('click', togglePlay);
-$('prevBtn').addEventListener('click', prevTrack);
-$('nextBtn').addEventListener('click', nextTrack);
-$('volume').addEventListener('input', function () { setVolume(this.value); });
-$('settingsBtn').addEventListener('click', openSettings);
-$('cancelBtn').addEventListener('click', closeSettings);
-$('saveBtn').addEventListener('click', saveSettings);
-$('fileInput').addEventListener('change', function () { loadLocalFile(this.files[0]); });
