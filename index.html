@@ -238,6 +238,15 @@ body.expanded .expanded-player { display: flex; }
 .mp-btn.like.liked { color: #f43f5e; border-color: rgba(244,63,94,.4); }
 .item .like-mark { color: #f43f5e; font-size: 10px; margin-left: 4px; }
 
+/* ===== Оптимизация тапов: мгновенный отклик без 300мс задержки ===== */
+* { -webkit-tap-highlight-color: transparent; }
+button, .item, .fab { touch-action: manipulation; }
+.btn:active, .item:active, .cbtn:active, .fab:active, .exp-btn:active, .mobile-tabs button:active {
+  transform: scale(.95); transition: transform .05s ease-out; }
+.item .dl { background: none; border: none; color: var(--muted); font-size: 14px; padding: 6px 6px; flex-shrink: 0; }
+.item .dl:active { color: var(--accent); }
+.item .dl.done { color: #34d399; }
+
 /* ===== Settings modal ===== */
 .modalbg { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
   align-items: center; justify-content: center; z-index: 50; padding: 16px; pointer-events: none; }
@@ -350,7 +359,7 @@ body.expanded .expanded-player { display: flex; }
 <div class="topbar">
   <div class="logo"><svg viewBox="0 0 512 512" style="width:100%;height:100%;border-radius:9px;display:block"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c084fc"/><stop offset=".5" stop-color="#a855f7"/><stop offset="1" stop-color="#ec4899"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#lg1)"/><path d="M-40 380 C120 300 80 500 240 420 S420 300 560 360" stroke="#fff" stroke-width="70" fill="none" opacity=".3" stroke-linecap="round"/><path d="M-40 130 C100 50 160 210 300 130 S460 70 560 150" stroke="#fff" stroke-width="40" fill="none" opacity=".22" stroke-linecap="round"/><circle cx="256" cy="216" r="112" fill="#0f0f14"/><path d="M220 162 L322 216 L220 270 Z" fill="#fff"/><circle cx="348" cy="290" r="15" fill="#fff"/><rect x="360" y="212" width="8" height="82" fill="#fff"/></svg></div>
   <span class="brand">Muzik player</span>
-  <span class="badge">v4.5</span>
+  <span class="badge">v4.6</span>
   <div class="searchwrap">
     <input id="q" type="search" placeholder="Название или ссылка…" autocomplete="off">
     <select id="engine">
@@ -463,6 +472,10 @@ body.expanded .expanded-player { display: flex; }
     <p style="margin-top:14px"><b>Обновления:</b> версия плеера — <b id="curVersion"></b></p>
     <div class="row" style="margin-bottom:8px">
       <button class="btn ghost" id="updCheckBtn" type="button">Проверить обновления</button>
+    </div>
+    <p style="margin-top:14px"><b>Скачанная музыка:</b> <span id="dlInfo">…</span></p>
+    <div class="row">
+      <button class="btn ghost" id="dlClearBtn" type="button">Очистить скачанное</button>
     </div>
     <p id="updInfo" style="font-size:13px;opacity:.85"></p>
     <div class="row">
@@ -921,6 +934,13 @@ function renderPlaylist() {
       '<div class="ic ' + (t.platform === 'youtube' ? 'yt' : (t.platform === 'builtin' ? '' : 'sc')) + '">' + (t.platform === 'youtube' ? '▶' : (t.platform === 'builtin' ? '★' : '☁')) + '</div>' +
       '<div class="meta"><div class="t">' + esc(t.title) + (isLiked(t.url) ? '<span class="like-mark">♥</span>' : '') + '</div><div class="a">' + esc(t.artist) + '</div></div>';
     el.addEventListener('click', function () { playTrack(i); });
+    const dl = document.createElement('button');
+    dl.className = 'dl' + (t.downloaded ? ' done' : '');
+    dl.type = 'button';
+    dl.textContent = t.downloaded ? '📥' : '⬇';
+    dl.title = t.downloaded ? 'Скачан — играет офлайн' : 'Скачать на устройство';
+    dl.addEventListener('click', function (e) { e.stopPropagation(); downloadTrack(t); });
+    el.appendChild(dl);
     const x = document.createElement('button');
     x.className = 'x';
     x.type = 'button';
@@ -1048,6 +1068,89 @@ function detachAudio(a) {
   try { a.load(); } catch (e) {}
 }
 
+// ---------- офлайн: скачанные треки живут на устройстве ----------
+const OFFLINE_CACHE = 'muzik-offline-v1';
+let activeBlobUrl = null;
+let _cachesOk; // проверяем один раз: в песочнице CDN кэш запрещён, на Pages/APK работает
+function cachesOk() {
+  if (_cachesOk === undefined) {
+    try { _cachesOk = typeof caches !== 'undefined' && !!caches.open; } catch (e) { _cachesOk = false; }
+  }
+  return _cachesOk;
+}
+function trackKey(t) { return t.url || t.videoId || t.id; }
+
+async function getCachedUrl(t) {
+  if (!cachesOk() || !t.url) return null;
+  try {
+    const c = await caches.open(OFFLINE_CACHE);
+    const r = await c.match('dl:' + trackKey(t));
+    if (!r) return null;
+    if (activeBlobUrl) { try { URL.revokeObjectURL(activeBlobUrl); } catch (e) {} }
+    activeBlobUrl = URL.createObjectURL(await r.blob());
+    return activeBlobUrl;
+  } catch (e) { return null; }
+}
+
+async function downloadTrack(t) {
+  if (!t || !t.url) return;
+  if (t.downloaded) { $('plStatus').textContent = '«' + t.title + '» уже скачан 📥'; return; }
+  if (!cachesOk()) {
+    $('plStatus').textContent = 'Скачивание работает на GitHub Pages или в приложении, тут браузер не даёт';
+    $('plStatus').style.color = '#f87171';
+    return;
+  }
+  $('plStatus').style.color = '';
+  $('plStatus').textContent = '⬇ Скачиваю «' + t.title + '»…';
+  try {
+    const candidates = [t.url].concat(t.alts || []);
+    let stream = null;
+    for (const cu of candidates) {
+      stream = await resolveScStream(cu);
+      if (stream && stream.url) break;
+      stream = null;
+    }
+    if (!stream) throw new Error('не удалось получить поток');
+    const r = await fetch(stream.url);
+    if (!r.ok) throw new Error('сервер отдал ' + r.status);
+    const c = await caches.open(OFFLINE_CACHE);
+    await c.put('dl:' + trackKey(t), r);
+    t.downloaded = true;
+    renderPlaylist();
+    $('plStatus').textContent = '📥 «' + t.title + '» скачан — играет без интернета';
+  } catch (e) {
+    $('plStatus').textContent = 'Не удалось скачать: ' + (e.message || 'ошибка');
+    $('plStatus').style.color = '#f87171';
+  }
+}
+
+async function refreshDlFlags() {
+  if (!cachesOk()) return;
+  try {
+    const c = await caches.open(OFFLINE_CACHE);
+    const keys = await c.keys();
+    const dlSet = {};
+    keys.forEach(function (k) { if (k.url.indexOf('dl:') !== -1) dlSet[k.url.slice(3)] = 1; });
+    playlist.forEach(function (t) { t.downloaded = !!dlSet[trackKey(t)]; });
+    renderPlaylist();
+  } catch (e) {}
+}
+
+async function updateDlInfo() {
+  if (!cachesOk()) { $('dlInfo').textContent = 'в этом режиме браузера недоступно'; return; }
+  try {
+    const c = await caches.open(OFFLINE_CACHE);
+    const keys = await c.keys();
+    const n = keys.filter(function (k) { return k.url.indexOf('dl:') !== -1; }).length;
+    let size = '';
+    if (navigator.storage && navigator.storage.estimate) {
+      const est = await navigator.storage.estimate();
+      size = ' (~' + Math.round((est.usage || 0) / 1048576) + ' МБ на устройстве)';
+    }
+    $('dlInfo').textContent = n ? n + ' трек(ов) скачано' + size : 'пока ничего не скачано';
+  } catch (e) { $('dlInfo').textContent = '…'; }
+}
+
 async function playTrack(i) {
   if (i < 0 || i >= playlist.length) return;
   const token = ++playSeq;
@@ -1096,14 +1199,20 @@ async function playTrack(i) {
   } else if (t.platform === 'soundcloud') {
     // 1) Пытаемся получить прямой mp3-поток по ссылке и сыграть его сами
     $('plStatus').textContent = 'Запускаю «' + t.title + '»…';
-    // Пробуем основной permalink и запасные (alts), пока не получим живой поток
-    let stream = null;
-    const candidates = [t.url].concat(t.alts || []);
-    for (let ci = 0; ci < candidates.length; ci++) {
-      stream = await resolveScStream(candidates[ci]);
-      if (token !== playSeq) return; // включили другой трек, выходим
-      if (stream && stream.url) break;
-      stream = null;
+    // 0) Скачанный трек: играем прямо с устройства, интернет не нужен
+    let offline = false;
+    let stream = await getCachedUrl(t);
+    if (token !== playSeq) return;
+    if (stream) { stream = { url: stream, art: null }; offline = true; }
+    // 1) Иначе: пробуем основной permalink и запасные (alts), пока не получим живой поток
+    if (!offline) {
+      const candidates = [t.url].concat(t.alts || []);
+      for (let ci = 0; ci < candidates.length; ci++) {
+        stream = await resolveScStream(candidates[ci]);
+        if (token !== playSeq) return; // включили другой трек, выходим
+        if (stream && stream.url) break;
+        stream = null;
+      }
     }
     if (stream && stream.url) {
       scWidget = null;
@@ -1120,7 +1229,7 @@ async function playTrack(i) {
       box.innerHTML = '';
       const cap = document.createElement('div');
       cap.className = 'placeholder';
-      cap.innerHTML = '<div style="font-weight:700;color:#f1f5f9;margin-bottom:10px">' + esc(t.title) + '</div><div style="margin-bottom:10px">' + esc(t.artist) + ' • SoundCloud</div>';
+      cap.innerHTML = '<div style="font-weight:700;color:#f1f5f9;margin-bottom:10px">' + esc(t.title) + (offline ? ' 📥' : '') + '</div><div style="margin-bottom:10px">' + esc(t.artist) + ' • ' + (offline ? 'на устройстве' : 'SoundCloud') + '</div>';
       box.appendChild(cap);
       box.appendChild(audio);
       currentAudio = audio;
@@ -1134,147 +1243,10 @@ async function playTrack(i) {
       });
       try { await audio.play(); } catch (e) { /* пользователь тапнет play в самом плеере */ }
       if (token !== playSeq) return;
-      $('plStatus').textContent = 'Играет прямой поток';
+      $('plStatus').textContent = offline ? '📥 Играет с устройства — интернет не нужен' : 'Играет прямой поток';
       startViz('simulated');
       isPlaying = true;
     } else {
       // 2) Фолбэк: официальный виджет SoundCloud
       $('plStatus').textContent = 'Прямой поток недоступен, включаю виджет…';
       box.classList.remove('column');
-      box.innerHTML = '<iframe src="https://w.soundcloud.com/player/?url=' + encodeURIComponent(t.url) + '&auto_play=true&color=%233b82f6&visual=true" allow="autoplay"></iframe>';
-      if (window.SC && window.SC.Widget) {
-        try {
-          scWidget = window.SC.Widget(box.querySelector('iframe'));
-          scWidget.bind(window.SC.Widget.Events.READY, function () { scWidget.play(); });
-          scWidget.bind(window.SC.Widget.Events.PLAY, function () { isPlaying = true; updatePlayIcon(); });
-          scWidget.bind(window.SC.Widget.Events.PAUSE, function () { isPlaying = false; updatePlayIcon(); });
-          scWidget.bind(window.SC.Widget.Events.FINISH, onTrackEnd);
-        } catch (e) { scWidget = null; }
-      } else { scWidget = null; }
-      startViz('simulated');
-      isPlaying = true;
-    }
-  } else if (t.platform === 'local') {
-    const audio = new Audio(t.objectUrl);
-    audio.volume = $('volume').value / 100;
-    audio.play();
-    currentAudio = audio;
-    audio.addEventListener('ended', nextTrack);
-    const ap = document.createElement('div');
-    ap.className = 'placeholder';
-    ap.innerHTML = '<div>▶ Локальный файл играет. Спектр — реальный.</div>';
-    box.appendChild(ap);
-    attachRealViz(audio);
-    isPlaying = true;
-  }
-  updatePlayIcon();
-  renderPlaylist();
-}
-
-function togglePlay() {
-  if (currentIndex === -1) { if (playlist.length) playTrack(0); return; }
-  const t = playlist[currentIndex];
-  if (t.platform === 'local' && currentAudio) {
-    if (currentAudio.paused) { currentAudio.play(); isPlaying = true; }
-    else { currentAudio.pause(); isPlaying = false; }
-  } else if (t.platform === 'soundcloud' && scWidget) {
-    // Управляем плеером SoundCloud по-настоящему
-    scWidget.isPaused(function (paused) {
-      if (paused) { scWidget.play(); isPlaying = true; }
-      else { scWidget.pause(); isPlaying = false; }
-      updatePlayIcon();
-    });
-    return;
-  } else {
-    isPlaying = !isPlaying; // для YouTube iframe управляет сам YouTube-плеер
-  }
-  updatePlayIcon();
-}
-
-// Битые треки: помечаем и идём дальше, но не зацикливаемся
-let failStreak = 0;
-let shuffleMode = false;   // перемешивание
-let repeatMode = 0;        // 0 = выкл, 1 = повтор всех, 2 = повтор одного
-
-function onTrackEnd() {
-  if (repeatMode === 2 && currentAudio) { currentAudio.currentTime = 0; currentAudio.play(); return; }
-  nextTrack();
-}
-
-function nextTrack() {
-  if (!playlist.length) return;
-  if (shuffleMode && playlist.length > 1) {
-    let n;
-    do { n = Math.floor(Math.random() * playlist.length); } while (n === currentIndex);
-    playTrack(n);
-    return;
-  }
-  playTrack((currentIndex + 1) % playlist.length);
-}
-function prevTrack() { if (playlist.length) playTrack((currentIndex - 1 + playlist.length) % playlist.length); }
-
-function markUnavailable(t) {
-  if (t) t.unavailable = true;
-  $('plStatus').textContent = '«' + (t ? t.title : 'трек') + '» недоступен — включаю следующий';
-  $('plStatus').style.color = '#f87171';
-  failStreak++;
-  renderPlaylist();
-  if (failStreak < playlist.length) nextTrack();
-  else { failStreak = 0; stopPlayback(); $('plStatus').textContent = 'Все треки недоступны 😔'; }
-}
-
-function setVolume(v) { if (currentAudio) currentAudio.volume = v / 100; }
-
-function updatePlayIcon() {
-  const icon = isPlaying
-    ? '<path d="M6 19h4V5H6zm8-14v14h4V5z"/>'
-    : '<path d="M8 5v14l11-7z"/>';
-  $('playIcon').innerHTML = icon;
-  $('mpPlayIcon').innerHTML = icon;
-  $('expPlayIcon').innerHTML = icon;
-  $('vizLabel').textContent = isPlaying ? 'Визуализатор • ' + (vizMode === 'real' ? 'реальный спектр' : 'режим под бит') : 'Визуализатор (пауза)';
-}
-
-// ---------- лайки ----------
-function getLikes() {
-  try { return JSON.parse(lsGet('muzik_likes') || '[]'); } catch (e) { return []; }
-}
-function isLiked(url) { return !!url && getLikes().indexOf(url) !== -1; }
-function toggleLike() {
-  if (currentIndex === -1) return;
-  const t = playlist[currentIndex];
-  if (!t.url) return;
-  let likes = getLikes();
-  if (isLiked(t.url)) likes = likes.filter(function (u) { return u !== t.url; });
-  else likes.push(t.url);
-  lsSet('muzik_likes', JSON.stringify(likes));
-  updateLikeIcon();
-  renderPlaylist();
-}
-function updateLikeIcon() {
-  const liked = currentIndex >= 0 && playlist[currentIndex] && isLiked(playlist[currentIndex].url);
-  ['mpLike', 'expLike'].forEach(function (id) {
-    const btn = $(id);
-    if (!btn) return;
-    if (liked) btn.classList.add('liked');
-    else btn.classList.remove('liked');
-  });
-}
-
-// ---------- visualizer ----------
-const canvas = $('viz');
-const ctx = canvas.getContext('2d');
-
-function resizeCanvas() {
-  const r = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.max(1, r.width * dpr);
-  canvas.height = Math.max(1, r.height * dpr);
-}
-window.addEventListener('resize', resizeCanvas);
-window.addEventListener('orientationchange', function () { setTimeout(resizeCanvas, 300); });
-
-function attachRealViz(audioEl) {
-  try {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    const ac = new AC();
